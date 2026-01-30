@@ -1,0 +1,47 @@
+[project]
+name = "cau-notice-bot"
+version = "0.2.0"
+description = "Chung Ang University Notice Bot"
+readme = "README.md"
+requires-python = ">=3.9.2,<4.0"
+
+dependencies = [
+    "requests>=2.28.1",
+    "aiohttp>=3.9.0",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.3.1",
+    "ruff>=0.9.0",
+    "pytest-asyncio>=0.21.1",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=4.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports, undefined names)
+    "W",   # pycodestyle warnings
+    "I",   # isort (import sorting)
+]
+ignore = [
+    "E203",  # whitespace before ':' (conflicts with black-style formatting)
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+quote-style = "double"
