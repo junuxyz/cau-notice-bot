@@ -1,7 +1,7 @@
 # CAU Notice Bot v0.2.0
 
 <p align="center">
-  <img src="cau_notice_bot_logo_v.0.2.0.png" width="280">
+  <img src="assets/cau_notice_bot_logo_v.0.2.0.png" width="280">
 </p>
 
 Chung-Ang University notice alert Discord bot
