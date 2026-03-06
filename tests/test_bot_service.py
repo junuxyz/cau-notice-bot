@@ -23,11 +23,21 @@ class TestLoadConfig:
             config = load_config()
 
         assert config.bot_token == 'test_bot_token'
-        assert config.discord_channel_id == '123456789012345678'
+        assert config.discord_channel_ids == ['123456789012345678', '987654321098765432']
         assert config.cau_website_url == 'https://www.cau.ac.kr/cms/FR_CON/BoardView.do'
         assert config.cau_api_url == 'https://www.cau.ac.kr/ajax/FR_SVC/BBSViewList2.do'
         assert config.library_website_url == 'https://library.cau.ac.kr/guide/bulletins/notice'
         assert config.library_api_url == 'https://library.cau.ac.kr/pyxis-api/1/bulletin-boards/1/bulletins'
+
+    def test_load_config_legacy_single_channel_fallback(self, mock_env):
+        """Falls back to legacy DISCORD_CHANNEL_ID when new var is missing"""
+        legacy_env = {k: v for k, v in mock_env.items() if k != 'DISCORD_CHANNEL_IDS'}
+        legacy_env['DISCORD_CHANNEL_ID'] = '123456789012345678'
+
+        with patch.dict('os.environ', legacy_env, clear=True):
+            config = load_config()
+
+        assert config.discord_channel_ids == ['123456789012345678']
 
     def test_load_config_missing_env_raises_keyerror(self):
         """Missing environment variable raises KeyError (fail-fast)"""
@@ -131,6 +141,7 @@ class TestSendMessageToDiscord:
             result = await send_message_to_discord(bot_config, notices)
 
         assert result is True
+        assert mock_discord_session.post.call_count == len(bot_config.discord_channel_ids)
 
     @pytest.mark.asyncio
     async def test_empty_notices_returns_true(self, bot_config):
@@ -158,8 +169,8 @@ class TestSendMessageToDiscord:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_network_error_raises(self, bot_config):
-        """Network errors are propagated"""
+    async def test_network_error_returns_false(self, bot_config):
+        """Network errors return False"""
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -168,5 +179,6 @@ class TestSendMessageToDiscord:
         notices = [{'title': 'Test', 'post_date': '2026-01-19', 'category': 'CAU 공지', 'url': None}]
 
         with patch('aiohttp.ClientSession', return_value=mock_session):
-            with pytest.raises(Exception, match="Network error"):
-                await send_message_to_discord(bot_config, notices)
+            result = await send_message_to_discord(bot_config, notices)
+
+        assert result is False

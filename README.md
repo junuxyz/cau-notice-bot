@@ -10,7 +10,7 @@ Chung-Ang University notice alert Discord bot
 
 ## What it does
 
-Sends new notices from the past 24 hours to a Discord channel every day at 8 AM KST
+Sends new notices from the past 24 hours to one or more Discord channels every day at 8 AM KST
 
 **Sources**
 - 📢 **CAU Official Notices**
@@ -26,6 +26,16 @@ Fetch CAU API → Check new notices
     ↓
 Send alerts via Discord Webhook
 ```
+
+## Environment
+
+```env
+DISCORD_BOT_TOKEN=your_bot_token
+DISCORD_CHANNEL_IDS=123456789012345678,987654321098765432
+```
+
+- `DISCORD_CHANNEL_IDS` is the preferred format (comma-separated).
+- `DISCORD_CHANNEL_ID` is still supported as a legacy fallback.
 
 ## Development
 

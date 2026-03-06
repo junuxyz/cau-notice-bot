@@ -53,7 +53,7 @@ def bot_config():
     """Mock BotConfig for testing"""
     return BotConfig(
         bot_token='test_bot_token',
-        discord_channel_id='123456789012345678',
+        discord_channel_ids=['123456789012345678', '987654321098765432'],
         cau_website_url='https://www.cau.ac.kr/cms/FR_CON/BoardView.do',
         cau_api_url='https://www.cau.ac.kr/ajax/FR_SVC/BBSViewList2.do',
         library_website_url='https://library.cau.ac.kr/guide/bulletins/notice',
@@ -84,7 +84,7 @@ def mock_env():
     """Standard mock environment variables"""
     return {
         'DISCORD_BOT_TOKEN': 'test_bot_token',
-        'DISCORD_CHANNEL_ID': '123456789012345678',
+        'DISCORD_CHANNEL_IDS': '123456789012345678,987654321098765432',
         'CAU_WEBSITE_URL': 'https://www.cau.ac.kr/cms/FR_CON/BoardView.do',
         'CAU_API_URL': 'https://www.cau.ac.kr/ajax/FR_SVC/BBSViewList2.do',
         'CAU_LIBRARY_WEBSITE_URL': 'https://library.cau.ac.kr/guide/bulletins/notice',

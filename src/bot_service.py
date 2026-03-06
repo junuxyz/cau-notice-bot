@@ -16,7 +16,7 @@ DISCORD_EMBED_COLOR_BLUE = 0x3498db
 @dataclass
 class BotConfig:
     bot_token: str
-    discord_channel_id: str
+    discord_channel_ids: List[str]
     cau_website_url: str
     cau_api_url: str
     library_website_url: str
@@ -30,12 +30,28 @@ def load_config() -> BotConfig:
     """
     return BotConfig(
         bot_token=os.environ['DISCORD_BOT_TOKEN'],
-        discord_channel_id=os.environ['DISCORD_CHANNEL_ID'],
+        discord_channel_ids=_load_discord_channel_ids(),
         cau_website_url=os.environ['CAU_WEBSITE_URL'],
         cau_api_url=os.environ['CAU_API_URL'],
         library_website_url=os.environ['CAU_LIBRARY_WEBSITE_URL'],
         library_api_url=os.environ['CAU_LIBRARY_API_URL'],
     )
+
+
+def _load_discord_channel_ids() -> List[str]:
+    """Load Discord channel IDs from env, supporting multi and legacy single."""
+    channel_ids_raw = os.environ.get('DISCORD_CHANNEL_IDS', '')
+    if channel_ids_raw.strip():
+        channel_ids = [channel_id.strip() for channel_id in channel_ids_raw.split(',') if channel_id.strip()]
+        if channel_ids:
+            return channel_ids
+        raise KeyError('DISCORD_CHANNEL_IDS')
+
+    legacy_channel_id = os.environ.get('DISCORD_CHANNEL_ID', '').strip()
+    if legacy_channel_id:
+        return [legacy_channel_id]
+
+    raise KeyError('DISCORD_CHANNEL_IDS')
 
 
 def create_notice_embed(notices: List[Dict]) -> Optional[Dict]:
@@ -84,23 +100,33 @@ async def send_message_to_discord(config: BotConfig, all_notices: List[Dict]) ->
         return True
 
     embed = create_notice_embed(all_notices)
-    url = f"https://discord.com/api/v10/channels/{config.discord_channel_id}/messages"
     headers = {
         "Authorization": f"Bot {config.bot_token}",
         "Content-Type": "application/json"
     }
     payload = {"embeds": [embed]}
+    all_success = True
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload) as response:
-                if response.status in (200, 201):
-                    logging.info(f"Successfully sent {len(all_notices)} notices to Discord")
-                    return True
-                else:
-                    error_text = await response.text()
-                    logging.error(f"Failed to send Discord message: {response.status} - {error_text}")
-                    return False
+            for channel_id in config.discord_channel_ids:
+                url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+                try:
+                    async with session.post(url, headers=headers, json=payload) as response:
+                        if response.status in (200, 201):
+                            logging.info(f"Successfully sent {len(all_notices)} notices to channel {channel_id}")
+                        else:
+                            error_text = await response.text()
+                            logging.error(
+                                f"Failed to send Discord message to channel {channel_id}: "
+                                f"{response.status} - {error_text}"
+                            )
+                            all_success = False
+                except Exception as e:
+                    logging.error(f"Error sending Discord message to channel {channel_id}: {str(e)}")
+                    all_success = False
+
+            return all_success
     except Exception as e:
         logging.error(f"Error sending Discord message: {str(e)}")
-        raise
+        return False
