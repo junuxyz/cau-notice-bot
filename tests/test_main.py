@@ -201,3 +201,53 @@ class TestMain:
         assert sw_field["inline"] is False
         assert "날짜: 2026.01.19" in sw_field["value"]
         assert "[바로가기](" in sw_field["value"]
+
+    @pytest.mark.asyncio
+    async def test_initial_run_sends_only_latest_sw_notice_and_saves_uid(self, mock_env):
+        """Initial run should send latest SW notice once and initialize state."""
+        cau_response = _mock_api_response({"data": {"list": []}})
+        sw_response = _mock_html_response(
+            create_sw_notice_list_html(
+                [
+                    {"uid": 901, "title": "이전 SW 공지", "date": "2026.01.18"},
+                    {"uid": 902, "title": "최신 SW 공지", "date": "2026.01.19"},
+                ]
+            )
+        )
+        library_response = _mock_api_response({"success": True, "data": {"list": []}})
+
+        mock_response = AsyncMock(status=200, text=AsyncMock(return_value="{}"))
+        mock_session = MagicMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=None),
+            )
+        )
+
+        with (
+            patch.dict("os.environ", mock_env, clear=True),
+            patch(
+                "requests.get",
+                side_effect=[cau_response, sw_response, library_response],
+            ),
+            patch("src.notice_check.load_last_seen_uid", return_value=None),
+            patch("src.main.save_last_seen_uid") as mock_save_uid,
+            patch("aiohttp.ClientSession", return_value=mock_session),
+        ):
+            exit_code = await main()
+
+        assert exit_code == 0
+        mock_save_uid.assert_called_once_with(".state/sw_last_seen_uid.txt", 902)
+        sent_payload = mock_session.post.call_args.kwargs["json"]
+        fields = sent_payload["embeds"][0]["fields"]
+        sw_fields = [
+            field
+            for field in fields
+            if field["name"].startswith("[소프트웨어학과 공지]")
+        ]
+        assert len(sw_fields) == 1
+        assert sw_fields[0]["name"] == "[소프트웨어학과 공지] 최신 SW 공지"
+        assert "uid=902" in sw_fields[0]["value"]

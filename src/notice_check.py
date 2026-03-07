@@ -205,8 +205,12 @@ def check_sw_notices(
 
     latest_uid = max(notice["uid"] for notice in parsed_notices)
     if last_seen_uid is None:
-        logging.info("Software notice state not found; initializing with latest UID.")
-        return [], latest_uid
+        logging.info(
+            "Software notice state not found; sending latest notice and initializing state."
+        )
+        latest_notice = max(parsed_notices, key=lambda notice: notice["uid"]).copy()
+        latest_notice.pop("uid", None)
+        return [latest_notice], latest_uid
 
     new_notices = [notice for notice in parsed_notices if notice["uid"] > last_seen_uid]
     new_notices.sort(key=lambda notice: notice["uid"])

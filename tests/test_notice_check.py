@@ -278,7 +278,7 @@ class TestCheckSwNotices:
             assert "nmode=view" in notice["url"]
             assert "uid=" in notice["url"]
 
-    def test_initial_run_returns_no_notices_and_sets_latest_uid(self):
+    def test_initial_run_returns_latest_notice_and_sets_latest_uid(self):
         html = create_sw_notice_list_html(
             [
                 {"uid": 1100, "title": "초기화 대상 공지", "date": "2026.03.07"},
@@ -290,8 +290,31 @@ class TestCheckSwNotices:
                 "https://cse.cau.ac.kr/sub05/sub0501.php", None
             )
 
-        assert notices == []
+        assert len(notices) == 1
+        assert notices[0]["title"] == "초기화 대상 공지"
+        assert notices[0]["category"] == "소프트웨어학과 공지"
+        assert notices[0]["post_date"] == "2026.03.07"
+        assert "uid=1100" in notices[0]["url"]
         assert latest_uid == 1100
+
+    def test_initial_run_returns_only_latest_notice_when_multiple_exist(self):
+        html = create_sw_notice_list_html(
+            [
+                {"uid": 2103, "title": "최신 공지", "date": "2026.03.07"},
+                {"uid": 2102, "title": "이전 공지", "date": "2026.03.06"},
+                {"uid": 2101, "title": "더 이전 공지", "date": "2026.03.05"},
+            ]
+        )
+
+        with patch("requests.get", return_value=self._mock_html_response(html)):
+            notices, latest_uid = check_sw_notices(
+                "https://cse.cau.ac.kr/sub05/sub0501.php", None
+            )
+
+        assert len(notices) == 1
+        assert notices[0]["title"] == "최신 공지"
+        assert "uid=2103" in notices[0]["url"]
+        assert latest_uid == 2103
 
     def test_handles_timeout(self):
         with patch("requests.get", side_effect=requests.exceptions.Timeout):
