@@ -62,5 +62,6 @@ dmypy.json
 # Logs
 *.log
 logs/
+.state/
 
 .pytest_cache/

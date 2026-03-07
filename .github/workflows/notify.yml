@@ -13,6 +13,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Restore software notice state cache
+        id: sw_state_cache_restore
+        uses: actions/cache/restore@v4
+        with:
+          path: .state/sw_last_seen_uid.txt
+          key: ${{ runner.os }}-sw-notice-state-v1
       
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -34,3 +41,12 @@ jobs:
           CAU_API_URL: ${{ secrets.CAU_API_URL }}
           CAU_LIBRARY_WEBSITE_URL: ${{ secrets.CAU_LIBRARY_WEBSITE_URL }}
           CAU_LIBRARY_API_URL: ${{ secrets.CAU_LIBRARY_API_URL }}
+          CAU_SW_NOTICE_URL: ${{ secrets.CAU_SW_NOTICE_URL }}
+          CAU_SW_NOTICE_STATE_FILE: .state/sw_last_seen_uid.txt
+
+      - name: Save software notice state cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .state/sw_last_seen_uid.txt
+          key: ${{ steps.sw_state_cache_restore.outputs.cache-primary-key }}

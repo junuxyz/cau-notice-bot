@@ -14,6 +14,7 @@ Sends new notices from the past 24 hours to one or more Discord channels every d
 
 **Sources**
 - 📢 **CAU Official Notices**
+- 💻 **Software Department Notices**
 - 📚 **Library Notices**
 - 🌈 **Rainbow System Links**
 
@@ -32,9 +33,12 @@ Send alerts via Discord Webhook
 ```env
 DISCORD_BOT_TOKEN=your_bot_token
 DISCORD_CHANNEL_IDS=123456789012345678,987654321098765432
+CAU_SW_NOTICE_URL=https://cse.cau.ac.kr/sub05/sub0501.php?offset=1&nmode=list&code=oktomato_bbs05
+CAU_SW_NOTICE_STATE_FILE=.state/sw_last_seen_uid.txt
 ```
 
 - `DISCORD_CHANNEL_IDS` is required and supports one or more IDs (comma-separated).
+- `CAU_SW_NOTICE_STATE_FILE` stores a single `last_seen_uid` value for software notice dedupe.
 
 ## Development
 
