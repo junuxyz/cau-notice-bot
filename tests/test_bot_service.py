@@ -29,15 +29,25 @@ class TestLoadConfig:
         assert config.library_website_url == 'https://library.cau.ac.kr/guide/bulletins/notice'
         assert config.library_api_url == 'https://library.cau.ac.kr/pyxis-api/1/bulletin-boards/1/bulletins'
 
-    def test_load_config_legacy_single_channel_fallback(self, mock_env):
-        """Falls back to legacy DISCORD_CHANNEL_ID when new var is missing"""
-        legacy_env = {k: v for k, v in mock_env.items() if k != 'DISCORD_CHANNEL_IDS'}
-        legacy_env['DISCORD_CHANNEL_ID'] = '123456789012345678'
+    def test_load_config_single_channel_id_success(self, mock_env):
+        """Single channel ID in DISCORD_CHANNEL_IDS is accepted"""
+        single_channel_env = dict(mock_env)
+        single_channel_env['DISCORD_CHANNEL_IDS'] = '123456789012345678'
 
-        with patch.dict('os.environ', legacy_env, clear=True):
+        with patch.dict('os.environ', single_channel_env, clear=True):
             config = load_config()
 
         assert config.discord_channel_ids == ['123456789012345678']
+
+    def test_load_config_channel_ids_filters_empty_tokens(self, mock_env):
+        """Whitespace and empty tokens are removed from DISCORD_CHANNEL_IDS"""
+        env_with_whitespace = dict(mock_env)
+        env_with_whitespace['DISCORD_CHANNEL_IDS'] = '123456789012345678, ,987654321098765432,'
+
+        with patch.dict('os.environ', env_with_whitespace, clear=True):
+            config = load_config()
+
+        assert config.discord_channel_ids == ['123456789012345678', '987654321098765432']
 
     def test_load_config_missing_env_raises_keyerror(self):
         """Missing environment variable raises KeyError (fail-fast)"""
@@ -56,6 +66,16 @@ class TestLoadConfig:
                 load_config()
 
         assert 'CAU_API_URL' in str(exc_info.value)
+
+    def test_load_config_missing_channel_ids_raises_keyerror(self, mock_env):
+        """DISCORD_CHANNEL_IDS is required"""
+        env_without_channel_ids = {k: v for k, v in mock_env.items() if k != 'DISCORD_CHANNEL_IDS'}
+
+        with patch.dict('os.environ', env_without_channel_ids, clear=True):
+            with pytest.raises(KeyError) as exc_info:
+                load_config()
+
+        assert 'DISCORD_CHANNEL_IDS' in str(exc_info.value)
 
 
 class TestCreateNoticeEmbed:

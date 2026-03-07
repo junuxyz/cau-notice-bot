@@ -34,8 +34,7 @@ DISCORD_BOT_TOKEN=your_bot_token
 DISCORD_CHANNEL_IDS=123456789012345678,987654321098765432
 ```
 
-- `DISCORD_CHANNEL_IDS` is the preferred format (comma-separated).
-- `DISCORD_CHANNEL_ID` is still supported as a legacy fallback.
+- `DISCORD_CHANNEL_IDS` is required and supports one or more IDs (comma-separated).
 
 ## Development
 

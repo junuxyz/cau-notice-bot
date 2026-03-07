@@ -39,17 +39,13 @@ def load_config() -> BotConfig:
 
 
 def _load_discord_channel_ids() -> List[str]:
-    """Load Discord channel IDs from env, supporting multi and legacy single."""
+    """Load one or more Discord channel IDs from comma-separated env var."""
     channel_ids_raw = os.environ.get('DISCORD_CHANNEL_IDS', '')
     if channel_ids_raw.strip():
         channel_ids = [channel_id.strip() for channel_id in channel_ids_raw.split(',') if channel_id.strip()]
         if channel_ids:
             return channel_ids
         raise KeyError('DISCORD_CHANNEL_IDS')
-
-    legacy_channel_id = os.environ.get('DISCORD_CHANNEL_ID', '').strip()
-    if legacy_channel_id:
-        return [legacy_channel_id]
 
     raise KeyError('DISCORD_CHANNEL_IDS')
 
