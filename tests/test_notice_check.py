@@ -213,7 +213,7 @@ class TestCheckNotices:
         mock_library.raise_for_status = MagicMock()
 
         mock_sw = MagicMock()
-        mock_sw.text = create_sw_notice_list_html([])
+        mock_sw.content = create_sw_notice_list_html([]).encode("utf-8")
         mock_sw.raise_for_status = MagicMock()
 
         with (
@@ -248,7 +248,7 @@ class TestCheckSwNotices:
 
     def _mock_html_response(self, html: str):
         mock = MagicMock()
-        mock.text = html
+        mock.content = html.encode("utf-8")
         mock.raise_for_status = MagicMock()
         return mock
 
@@ -324,3 +324,24 @@ class TestCheckSwNotices:
 
         assert notices == []
         assert latest_uid is None
+
+    def test_uses_bytes_parsing_to_prevent_mojibake(self):
+        original_title = "대학원 개설과목 <고급알고리즘> 강의실 변경 안내"
+        html = create_sw_notice_list_html(
+            [{"uid": 1400, "title": original_title, "date": "2026.03.07"}]
+        )
+
+        # Simulate requests.text mojibake when charset header is missing.
+        bad_text = html.encode("utf-8").decode("latin-1")
+        mock = MagicMock()
+        mock.text = bad_text
+        mock.content = html.encode("utf-8")
+        mock.raise_for_status = MagicMock()
+
+        with patch("requests.get", return_value=mock):
+            notices, latest_uid = check_sw_notices(
+                "https://cse.cau.ac.kr/sub05/sub0501.php", 1300
+            )
+
+        assert latest_uid == 1400
+        assert notices[0]["title"] == original_title

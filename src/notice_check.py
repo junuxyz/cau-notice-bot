@@ -172,7 +172,9 @@ def check_sw_notices(
         logging.error(f"Failed to fetch software department notices: {str(e)}")
         return [], None
 
-    soup = BeautifulSoup(res.text, "html.parser")
+    # Parse bytes directly so BeautifulSoup can honor the page's <meta charset>.
+    # The target site does not send a charset header, and requests.text can mojibake.
+    soup = BeautifulSoup(res.content, "html.parser")
     rows = soup.select("table.table-basic tbody tr")
 
     parsed_notices = []

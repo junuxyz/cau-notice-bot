@@ -43,7 +43,7 @@ def _mock_discord_session(status=200):
 def _mock_html_response(html: str):
     """Helper to create mock HTML response"""
     mock = MagicMock()
-    mock.text = html
+    mock.content = html.encode("utf-8")
     mock.raise_for_status = MagicMock()
     return mock
 
