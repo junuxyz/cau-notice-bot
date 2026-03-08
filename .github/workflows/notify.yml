@@ -19,7 +19,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .state/sw_last_seen_uid.txt
-          key: ${{ runner.os }}-sw-notice-state-v1
+          key: ${{ runner.os }}-sw-notice-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ runner.os }}-sw-notice-state-
       
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -49,4 +51,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .state/sw_last_seen_uid.txt
-          key: ${{ steps.sw_state_cache_restore.outputs.cache-primary-key }}
+          key: ${{ runner.os }}-sw-notice-state-${{ github.run_id }}-${{ github.run_attempt }}
