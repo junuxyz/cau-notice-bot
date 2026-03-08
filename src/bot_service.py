@@ -1,66 +1,32 @@
-"""
-Discord bot configuration and message sending.
-Uses Discord HTTP API directly for simplicity.
-"""
+"""Discord delivery and embed formatting."""
 
 import logging
-import os
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Mapping, Optional, Sequence, Union
 
 import aiohttp
 
+from src.config import BotConfig, load_config
+from src.domain import Notice
+
 DISCORD_EMBED_COLOR_BLUE = 0x3498DB
+__all__ = [
+    "BotConfig",
+    "DISCORD_EMBED_COLOR_BLUE",
+    "create_notice_embed",
+    "load_config",
+    "send_message_to_discord",
+]
+
+NoticeInput = Union[Notice, Mapping[str, object]]
 
 
-@dataclass
-class BotConfig:
-    bot_token: str
-    discord_channel_ids: List[str]
-    cau_website_url: str
-    cau_api_url: str
-    library_website_url: str
-    library_api_url: str
-    sw_notice_url: str
-    sw_notice_state_file: str
+def _notice_value(notice: NoticeInput, key: str) -> object:
+    if isinstance(notice, Notice):
+        return getattr(notice, key)
+    return notice.get(key)
 
 
-def load_config() -> BotConfig:
-    """Load configuration from environment variables.
-
-    Raises KeyError if any required variable is missing (fail-fast).
-    """
-    return BotConfig(
-        bot_token=os.environ["DISCORD_BOT_TOKEN"],
-        discord_channel_ids=_load_discord_channel_ids(),
-        cau_website_url=os.environ["CAU_WEBSITE_URL"],
-        cau_api_url=os.environ["CAU_API_URL"],
-        library_website_url=os.environ["CAU_LIBRARY_WEBSITE_URL"],
-        library_api_url=os.environ["CAU_LIBRARY_API_URL"],
-        sw_notice_url=os.environ.get("CAU_SW_NOTICE_URL", ""),
-        sw_notice_state_file=os.environ.get(
-            "CAU_SW_NOTICE_STATE_FILE", ".state/sw_last_seen_uid.txt"
-        ),
-    )
-
-
-def _load_discord_channel_ids() -> List[str]:
-    """Load one or more Discord channel IDs from comma-separated env var."""
-    channel_ids_raw = os.environ.get("DISCORD_CHANNEL_IDS", "")
-    if channel_ids_raw.strip():
-        channel_ids = [
-            channel_id.strip()
-            for channel_id in channel_ids_raw.split(",")
-            if channel_id.strip()
-        ]
-        if channel_ids:
-            return channel_ids
-        raise KeyError("DISCORD_CHANNEL_IDS")
-
-    raise KeyError("DISCORD_CHANNEL_IDS")
-
-
-def create_notice_embed(notices: List[Dict]) -> Optional[Dict]:
+def create_notice_embed(notices: Sequence[NoticeInput]) -> Optional[dict]:
     """Create a Discord embed dict from notice data."""
     if not notices:
         return None
@@ -68,10 +34,14 @@ def create_notice_embed(notices: List[Dict]) -> Optional[Dict]:
     fields = []
 
     for notice in notices:
-        field_name = f"[{notice['category']}] {notice['title']}"
-        field_value = f"날짜: {notice['post_date']}\n"
-        if notice.get("url"):
-            field_value += f"[바로가기]({notice['url']})"
+        category = str(_notice_value(notice, "category") or "")
+        title = str(_notice_value(notice, "title") or "")
+        post_date = str(_notice_value(notice, "post_date") or "")
+        url = _notice_value(notice, "url")
+        field_name = f"[{category}] {title}"
+        field_value = f"날짜: {post_date}\n"
+        if url:
+            field_value += f"[바로가기]({url})"
 
         # Discord embed field name limit is 256 chars, value limit is 1024 chars
         fields.append(
@@ -99,7 +69,9 @@ def create_notice_embed(notices: List[Dict]) -> Optional[Dict]:
     }
 
 
-async def send_message_to_discord(config: BotConfig, all_notices: List[Dict]) -> bool:
+async def send_message_to_discord(
+    config: BotConfig, all_notices: Sequence[NoticeInput]
+) -> bool:
     """Send notice message to Discord channel using HTTP API."""
     if not all_notices:
         logging.info("No notices to send")

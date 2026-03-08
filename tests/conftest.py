@@ -8,7 +8,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.bot_service import BotConfig
+from src.config import (
+    BotConfig,
+    CauNoticeSourceConfig,
+    DiscordConfig,
+    LibraryNoticeSourceConfig,
+    SoftwareNoticeSourceConfig,
+)
 
 # =============================================================================
 # DateTime Helpers
@@ -81,14 +87,22 @@ def create_sw_notice_list_html(rows):
 def bot_config():
     """Mock BotConfig for testing"""
     return BotConfig(
-        bot_token="test_bot_token",
-        discord_channel_ids=["123456789012345678", "987654321098765432"],
-        cau_website_url="https://www.cau.ac.kr/cms/FR_CON/BoardView.do",
-        cau_api_url="https://www.cau.ac.kr/ajax/FR_SVC/BBSViewList2.do",
-        library_website_url="https://library.cau.ac.kr/guide/bulletins/notice",
-        library_api_url="https://library.cau.ac.kr/pyxis-api/1/bulletin-boards/1/bulletins",
-        sw_notice_url="https://cse.cau.ac.kr/sub05/sub0501.php?offset=1&nmode=list&code=oktomato_bbs05",
-        sw_notice_state_file=".state/sw_last_seen_uid.txt",
+        discord=DiscordConfig(
+            bot_token="test_bot_token",
+            channel_ids=["123456789012345678", "987654321098765432"],
+        ),
+        cau=CauNoticeSourceConfig(
+            website_url="https://www.cau.ac.kr/cms/FR_CON/BoardView.do",
+            api_url="https://www.cau.ac.kr/ajax/FR_SVC/BBSViewList2.do",
+        ),
+        library=LibraryNoticeSourceConfig(
+            website_url="https://library.cau.ac.kr/guide/bulletins/notice",
+            api_url="https://library.cau.ac.kr/pyxis-api/1/bulletin-boards/1/bulletins",
+        ),
+        software=SoftwareNoticeSourceConfig(
+            notice_url="https://cse.cau.ac.kr/sub05/sub0501.php?offset=1&nmode=list&code=oktomato_bbs05",
+            state_file=".state/sw_last_seen_uid.txt",
+        ),
     )
 
 

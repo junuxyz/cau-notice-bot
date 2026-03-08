@@ -9,8 +9,8 @@ import sys
 
 from dotenv import load_dotenv
 
-from src.bot_service import load_config, send_message_to_discord
-from src.notice_check import check_notices, save_last_seen_uid
+from src.config import load_config
+from src.services import NoticeRunService
 
 
 async def main() -> int:
@@ -27,15 +27,9 @@ async def main() -> int:
 
     try:
         config = load_config()
-        cau_notices, library_notices, sw_latest_uid = check_notices(config)
-        all_notices = cau_notices + library_notices
-
-        logging.info(f"Found {len(all_notices)} total notices")
-
-        success = await send_message_to_discord(config, all_notices)
-        if success and sw_latest_uid is not None:
-            save_last_seen_uid(config.sw_notice_state_file, sw_latest_uid)
-        return 0 if success else 1
+        result = await NoticeRunService(config).run()
+        logging.info(f"Found {result.notices_sent} total notices")
+        return 0 if result.success else 1
 
     except KeyError as e:
         logging.error(f"Missing required environment variable: {e}")

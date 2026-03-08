@@ -74,13 +74,13 @@ class TestMain:
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
-            patch("src.notice_check.get_korea_datetime") as mock_now,
+            patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
                 side_effect=[cau_response, sw_response, library_response],
             ),
-            patch("src.notice_check.load_last_seen_uid", return_value=3001),
-            patch("src.main.save_last_seen_uid") as mock_save_uid,
+            patch("src.services.load_last_seen_uid", return_value=3001),
+            patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=_mock_discord_session()),
         ):
             mock_now.return_value = create_kst_datetime(2026, 1, 19, 15, 0)
@@ -102,8 +102,8 @@ class TestMain:
                 "requests.get",
                 side_effect=[cau_response, sw_response, library_response],
             ),
-            patch("src.notice_check.load_last_seen_uid", return_value=999),
-            patch("src.main.save_last_seen_uid") as mock_save_uid,
+            patch("src.services.load_last_seen_uid", return_value=999),
+            patch("src.services.save_last_seen_uid") as mock_save_uid,
         ):
             exit_code = await main()
 
@@ -142,7 +142,7 @@ class TestMain:
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
-            patch("src.notice_check.get_korea_datetime") as mock_now,
+            patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
                 side_effect=[cau_response, sw_response, library_response],
@@ -182,14 +182,16 @@ class TestMain:
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
+            patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
                 side_effect=[cau_response, sw_response, library_response],
             ),
-            patch("src.notice_check.load_last_seen_uid", return_value=776),
-            patch("src.main.save_last_seen_uid"),
+            patch("src.services.load_last_seen_uid", return_value=776),
+            patch("src.services.save_last_seen_uid"),
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):
+            mock_now.return_value = create_kst_datetime(2026, 1, 19, 15, 0)
             exit_code = await main()
 
         assert exit_code == 0
@@ -229,14 +231,16 @@ class TestMain:
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
+            patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
                 side_effect=[cau_response, sw_response, library_response],
             ),
-            patch("src.notice_check.load_last_seen_uid", return_value=None),
-            patch("src.main.save_last_seen_uid") as mock_save_uid,
+            patch("src.services.load_last_seen_uid", return_value=None),
+            patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):
+            mock_now.return_value = create_kst_datetime(2026, 1, 19, 15, 0)
             exit_code = await main()
 
         assert exit_code == 0
