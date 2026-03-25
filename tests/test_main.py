@@ -10,6 +10,7 @@ from src.main import main
 from tests.conftest import (
     create_cau_api_response,
     create_cau_notice,
+    create_disu_notice_list_html,
     create_kst_datetime,
     create_library_api_response,
     create_library_notice,
@@ -66,20 +67,28 @@ class TestMain:
                 ]
             )
         )
+        sw_page2_response = _mock_html_response(create_sw_notice_list_html([]))
         library_response = _mock_api_response(
             create_library_api_response(
                 [create_library_notice("2026-01-19 07:30:00", "Library Notice")]
             )
         )
+        disu_response = _mock_html_response(create_disu_notice_list_html([]))
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
             patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response],
+                side_effect=[
+                    cau_response,
+                    sw_response,
+                    sw_page2_response,
+                    library_response,
+                    disu_response,
+                ],
             ),
-            patch("src.services.load_last_seen_uid", return_value=3001),
+            patch("src.services.load_last_seen_uid", side_effect=[3001, None]),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=_mock_discord_session()),
         ):
@@ -95,14 +104,15 @@ class TestMain:
         cau_response = _mock_api_response({"data": {"list": []}})
         sw_response = _mock_html_response(create_sw_notice_list_html([]))
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
+        disu_response = _mock_html_response(create_disu_notice_list_html([]))
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response],
+                side_effect=[cau_response, sw_response, library_response, disu_response],
             ),
-            patch("src.services.load_last_seen_uid", return_value=999),
+            patch("src.services.load_last_seen_uid", side_effect=[999, None]),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
         ):
             exit_code = await main()
@@ -139,13 +149,14 @@ class TestMain:
         )
         sw_response = _mock_html_response(create_sw_notice_list_html([]))
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
+        disu_response = _mock_html_response(create_disu_notice_list_html([]))
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
             patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response],
+                side_effect=[cau_response, sw_response, library_response, disu_response],
             ),
             patch(
                 "aiohttp.ClientSession", return_value=_mock_discord_session(status=403)
@@ -167,7 +178,9 @@ class TestMain:
                 ]
             )
         )
+        sw_page2_response = _mock_html_response(create_sw_notice_list_html([]))
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
+        disu_response = _mock_html_response(create_disu_notice_list_html([]))
 
         mock_response = AsyncMock(status=200, text=AsyncMock(return_value="{}"))
         mock_session = MagicMock()
@@ -185,9 +198,15 @@ class TestMain:
             patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response],
+                side_effect=[
+                    cau_response,
+                    sw_response,
+                    sw_page2_response,
+                    library_response,
+                    disu_response,
+                ],
             ),
-            patch("src.services.load_last_seen_uid", return_value=776),
+            patch("src.services.load_last_seen_uid", side_effect=[776, None]),
             patch("src.services.save_last_seen_uid"),
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):
@@ -217,6 +236,7 @@ class TestMain:
             )
         )
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
+        disu_response = _mock_html_response(create_disu_notice_list_html([]))
 
         mock_response = AsyncMock(status=200, text=AsyncMock(return_value="{}"))
         mock_session = MagicMock()
@@ -234,9 +254,9 @@ class TestMain:
             patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response],
+                side_effect=[cau_response, sw_response, library_response, disu_response],
             ),
-            patch("src.services.load_last_seen_uid", return_value=None),
+            patch("src.services.load_last_seen_uid", side_effect=[None, None]),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):

@@ -41,6 +41,8 @@ class TestLoadConfig:
             "https://cse.cau.ac.kr/sub05/sub0501.php"
         )
         assert config.sw_notice_state_file == ".state/sw_last_seen_uid.txt"
+        assert config.disu_notice_url == "https://www.disu.ac.kr/community/notice"
+        assert config.disu_notice_state_file == ".state/disu_last_seen_bbsidx.txt"
 
     def test_load_config_single_channel_id_success(self, mock_env):
         """Single channel ID in DISCORD_CHANNEL_IDS is accepted"""

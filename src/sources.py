@@ -4,19 +4,32 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Callable, Optional, Protocol
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from src.domain import KST, Notice, NoticeBatch, SourceContext
+
+DISU_ALLOWED_CATEGORIES = frozenset({"중앙대학교", "POLARIS"})
 
 
 class NoticeSource(Protocol):
     def fetch(self, context: SourceContext) -> NoticeBatch:
         """Fetch notices for the given execution context."""
+
+
+@dataclass(frozen=True)
+class ParsedCursorNoticeRow:
+    cursor: Optional[int]
+    notice: Optional[Notice]
+
+
+PageUrlBuilder = Callable[[int], str]
+RowParser = Callable[[Tag, str], Optional[ParsedCursorNoticeRow]]
 
 
 class CauApiNoticeSource:
@@ -108,80 +121,229 @@ class LibraryNoticeSource:
 class SoftwareDeptNoticeSource:
     def __init__(self, notice_url: str):
         self.notice_url = notice_url
+        self._source = CursorHtmlNoticeSource(
+            source_name="software department notices",
+            build_page_url=lambda page: _replace_query_params(
+                notice_url,
+                {"offset": str(page)},
+            ),
+            row_selector="table.table-basic tbody tr",
+            row_parser=self._parse_row,
+        )
 
     def fetch(self, context: SourceContext) -> NoticeBatch:
         if not self.notice_url:
             return NoticeBatch(notices=[])
 
+        return self._source.fetch(context)
+
+    def _parse_row(self, row: Tag, page_url: str) -> Optional[ParsedCursorNoticeRow]:
+        title_link = row.select_one("td.aleft a")
+        if not title_link:
+            return None
+
+        uid = _extract_query_int(title_link.get("href", ""), "uid")
+        if uid is None:
+            return None
+
+        title = _normalize_html_text(title_link.get_text(separator=" ", strip=True))
+        date_match = re.search(r"\d{4}\.\d{2}\.\d{2}", row.get_text(" ", strip=True))
+        post_date = date_match.group(0) if date_match else ""
+
+        return ParsedCursorNoticeRow(
+            cursor=uid,
+            notice=Notice(
+                title=title,
+                post_date=post_date,
+                category="소프트웨어학과 공지",
+                url=urljoin(page_url, title_link.get("href", "")),
+                source="software",
+                source_id=uid,
+            ),
+        )
+
+
+class DisuNoticeSource:
+    def __init__(self, notice_url: str):
+        self.notice_url = notice_url
+        self._source = CursorHtmlNoticeSource(
+            source_name="DISU notices",
+            build_page_url=lambda page: _replace_query_params(
+                notice_url,
+                {"page": str(page)},
+            ),
+            row_selector="table.fixwidth tbody tr",
+            row_parser=self._parse_row,
+        )
+
+    def fetch(self, context: SourceContext) -> NoticeBatch:
+        if not self.notice_url:
+            return NoticeBatch(notices=[])
+
+        return self._source.fetch(context)
+
+    def _parse_row(self, row: Tag, page_url: str) -> Optional[ParsedCursorNoticeRow]:
+        cells = row.select("td")
+        if len(cells) < 4:
+            return None
+
+        title_link = row.select_one("td.title a")
+        if not title_link:
+            return None
+
+        bbsidx = _extract_query_int(title_link.get("href", ""), "bbsidx")
+        if bbsidx is None:
+            return None
+
+        category = _normalize_html_text(cells[1].get_text(separator=" ", strip=True))
+        if not category:
+            return ParsedCursorNoticeRow(cursor=bbsidx, notice=None)
+
+        if category not in DISU_ALLOWED_CATEGORIES:
+            return ParsedCursorNoticeRow(cursor=bbsidx, notice=None)
+
+        title = _normalize_html_text(title_link.get_text(separator=" ", strip=True))
+        date_cell = row.select_one("td.text-center.hidden-xs-down.FS12")
+        post_date = (
+            _normalize_html_text(date_cell.get_text(separator=" ", strip=True))
+            if date_cell
+            else ""
+        )
+
+        return ParsedCursorNoticeRow(
+            cursor=bbsidx,
+            notice=Notice(
+                title=title,
+                post_date=post_date,
+                category=f"차세대반도체 공지 ({category})",
+                url=urljoin(page_url, title_link.get("href", "")),
+                source="disu",
+                source_id=bbsidx,
+            ),
+        )
+
+
+class CursorHtmlNoticeSource:
+    def __init__(
+        self,
+        source_name: str,
+        build_page_url: PageUrlBuilder,
+        row_selector: str,
+        row_parser: RowParser,
+        max_pages: int = 10,
+    ):
+        self.source_name = source_name
+        self.build_page_url = build_page_url
+        self.row_selector = row_selector
+        self.row_parser = row_parser
+        self.max_pages = max_pages
+
+    def fetch(self, context: SourceContext) -> NoticeBatch:
+        last_seen_cursor = context.state
+        collected_notices: dict[int, Notice] = {}
+        latest_cursor: Optional[int] = None
+
+        for page in range(1, self.max_pages + 1):
+            page_url = self.build_page_url(page)
+            rows = self._fetch_rows(page_url)
+            if rows is None:
+                return NoticeBatch(notices=[], latest_cursor=None)
+            if not rows:
+                break
+
+            parsed_rows = [
+                parsed_row
+                for row in rows
+                if (parsed_row := self.row_parser(row, page_url)) is not None
+            ]
+
+            page_cursors = [
+                parsed_row.cursor
+                for parsed_row in parsed_rows
+                if parsed_row.cursor is not None
+            ]
+            if not page_cursors:
+                continue
+
+            page_latest_cursor = max(page_cursors)
+            latest_cursor = (
+                page_latest_cursor
+                if latest_cursor is None
+                else max(latest_cursor, page_latest_cursor)
+            )
+
+            eligible_rows = [
+                parsed_row
+                for parsed_row in parsed_rows
+                if parsed_row.notice is not None and parsed_row.cursor is not None
+            ]
+
+            if last_seen_cursor is None:
+                if eligible_rows:
+                    logging.info(
+                        "%s state not found; sending latest notice and initializing state.",
+                        self.source_name.capitalize(),
+                    )
+                    latest_notice = max(
+                        eligible_rows,
+                        key=lambda parsed_row: parsed_row.cursor or 0,
+                    ).notice
+                    return NoticeBatch(
+                        notices=[latest_notice] if latest_notice else [],
+                        latest_cursor=latest_cursor,
+                    )
+                continue
+
+            for parsed_row in eligible_rows:
+                cursor = parsed_row.cursor or 0
+                if cursor > last_seen_cursor and parsed_row.notice is not None:
+                    collected_notices[cursor] = parsed_row.notice
+
+            if page_latest_cursor <= last_seen_cursor:
+                break
+
+        notices = sorted(
+            collected_notices.values(),
+            key=lambda notice: notice.source_id or 0,
+        )
+        return NoticeBatch(notices=notices, latest_cursor=latest_cursor)
+
+    def _fetch_rows(self, page_url: str) -> Optional[list[Tag]]:
         try:
-            res = requests.get(self.notice_url, timeout=10)
+            res = requests.get(page_url, timeout=10)
             res.raise_for_status()
         except Exception as exc:
-            logging.error(f"Failed to fetch software department notices: {exc}")
-            return NoticeBatch(notices=[])
+            logging.error(f"Failed to fetch {self.source_name}: {exc}")
+            return None
 
         soup = BeautifulSoup(res.content, "html.parser")
-        rows = soup.select("table.table-basic tbody tr")
-
-        parsed_notices: list[Notice] = []
-        for row in rows:
-            title_link = row.select_one("td.aleft a")
-            if not title_link:
-                continue
-
-            uid = _extract_sw_notice_uid(title_link.get("href", ""))
-            if uid is None:
-                continue
-
-            raw_title = title_link.get_text(separator=" ", strip=True)
-            title = re.sub(r"\s+", " ", raw_title).strip()
-            date_match = re.search(r"\d{4}\.\d{2}\.\d{2}", row.get_text(" ", strip=True))
-            post_date = date_match.group(0) if date_match else ""
-
-            parsed_notices.append(
-                Notice(
-                    title=title,
-                    post_date=post_date,
-                    category="소프트웨어학과 공지",
-                    url=urljoin(self.notice_url, title_link.get("href", "")),
-                    source="software",
-                    source_id=uid,
-                )
-            )
-
-        if not parsed_notices:
-            return NoticeBatch(notices=[])
-
-        latest_uid = max(notice.source_id for notice in parsed_notices if notice.source_id)
-        last_seen_uid = context.state
-
-        if last_seen_uid is None:
-            logging.info(
-                "Software notice state not found; sending latest notice and initializing state."
-            )
-            latest_notice = max(
-                parsed_notices,
-                key=lambda notice: notice.source_id or 0,
-            )
-            return NoticeBatch(
-                notices=[latest_notice],
-                latest_cursor=latest_uid,
-            )
-
-        new_notices = [
-            notice for notice in parsed_notices if (notice.source_id or 0) > last_seen_uid
-        ]
-        new_notices.sort(key=lambda notice: notice.source_id or 0)
-        return NoticeBatch(notices=new_notices, latest_cursor=latest_uid)
+        return list(soup.select(self.row_selector))
 
 
 def _extract_sw_notice_uid(href: str):
+    return _extract_query_int(href, "uid")
+
+
+def _extract_query_int(href: str, key: str):
     query = parse_qs(urlparse(href).query)
-    uid_values = query.get("uid")
-    if not uid_values:
+    values = query.get(key)
+    if not values:
         return None
 
     try:
-        return int(uid_values[0])
+        return int(values[0])
     except ValueError:
         return None
+
+
+def _normalize_html_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _replace_query_params(url: str, updates: dict[str, str]) -> str:
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    for key, value in updates.items():
+        query[key] = [value]
+
+    return parsed._replace(query=urlencode(query, doseq=True)).geturl()

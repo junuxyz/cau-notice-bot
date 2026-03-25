@@ -9,6 +9,7 @@ from src.domain import Notice, SourceContext, build_daily_notice_window
 from src.domain import get_korea_datetime as _now
 from src.sources import (
     CauApiNoticeSource,
+    DisuNoticeSource,
     LibraryNoticeSource,
     SoftwareDeptNoticeSource,
 )
@@ -62,6 +63,16 @@ def check_sw_notices(
     """Scrape software department notices and return (new_notices, latest_uid)."""
     source = SoftwareDeptNoticeSource(sw_notice_url)
     batch = source.fetch(_source_context(state=last_seen_uid))
+    return _batch_to_dicts(batch), batch.latest_cursor
+
+
+def check_disu_notices(
+    disu_notice_url: str,
+    last_seen_bbsidx: Optional[int],
+) -> Tuple[List[Dict[str, str]], Optional[int]]:
+    """Scrape DISU notices and return (new_notices, latest_bbsidx)."""
+    source = DisuNoticeSource(disu_notice_url)
+    batch = source.fetch(_source_context(state=last_seen_bbsidx))
     return _batch_to_dicts(batch), batch.latest_cursor
 
 

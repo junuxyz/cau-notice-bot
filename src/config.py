@@ -31,11 +31,18 @@ class SoftwareNoticeSourceConfig:
 
 
 @dataclass(frozen=True)
+class DisuNoticeSourceConfig:
+    notice_url: str
+    state_file: str
+
+
+@dataclass(frozen=True)
 class BotConfig:
     discord: DiscordConfig
     cau: CauNoticeSourceConfig
     library: LibraryNoticeSourceConfig
     software: SoftwareNoticeSourceConfig
+    disu: DisuNoticeSourceConfig
 
     @property
     def bot_token(self) -> str:
@@ -69,6 +76,14 @@ class BotConfig:
     def sw_notice_state_file(self) -> str:
         return self.software.state_file
 
+    @property
+    def disu_notice_url(self) -> str:
+        return self.disu.notice_url
+
+    @property
+    def disu_notice_state_file(self) -> str:
+        return self.disu.state_file
+
 
 def load_config() -> BotConfig:
     """Load configuration from environment variables."""
@@ -89,6 +104,14 @@ def load_config() -> BotConfig:
             notice_url=os.environ.get("CAU_SW_NOTICE_URL", ""),
             state_file=os.environ.get(
                 "CAU_SW_NOTICE_STATE_FILE", ".state/sw_last_seen_uid.txt"
+            ),
+        ),
+        disu=DisuNoticeSourceConfig(
+            notice_url=os.environ.get(
+                "DISU_NOTICE_URL", "https://www.disu.ac.kr/community/notice"
+            ),
+            state_file=os.environ.get(
+                "DISU_NOTICE_STATE_FILE", ".state/disu_last_seen_bbsidx.txt"
             ),
         ),
     )

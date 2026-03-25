@@ -12,6 +12,7 @@ from src.config import (
     BotConfig,
     CauNoticeSourceConfig,
     DiscordConfig,
+    DisuNoticeSourceConfig,
     LibraryNoticeSourceConfig,
     SoftwareNoticeSourceConfig,
 )
@@ -78,6 +79,35 @@ def create_sw_notice_list_html(rows):
     )
 
 
+def create_disu_notice_list_html(rows):
+    """Create a minimal DISU notice list HTML snippet."""
+    body_rows = []
+    for row in rows:
+        body_rows.append(
+            (
+                "<tr class='noti'>"
+                "<td class='text-center noti-ico'>공지</td>"
+                f"<td class='text-center hidden-sm-down'>{row['category']}</td>"
+                "<td class='title noti-tit'>"
+                f"<span class='hidden-md-up'>[{row['category']}]</span>"
+                f"<a href='/community/notice?md=v&bbsidx={row['bbsidx']}'><span>{row['title']}</span></a>"
+                f"<span class='block hidden-sm-up'> {row['date']} / 0</span>"
+                "</td>"
+                f"<td class='text-center hidden-xs-down FS12'>{row['date']}</td>"
+                "<td class='text-center hidden-sm-down'>0</td>"
+                "</tr>"
+            )
+        )
+
+    return (
+        "<html><body>"
+        "<table class='fixwidth table table-rows'><tbody>"
+        f"{''.join(body_rows)}"
+        "</tbody></table>"
+        "</body></html>"
+    )
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -102,6 +132,10 @@ def bot_config():
         software=SoftwareNoticeSourceConfig(
             notice_url="https://cse.cau.ac.kr/sub05/sub0501.php?offset=1&nmode=list&code=oktomato_bbs05",
             state_file=".state/sw_last_seen_uid.txt",
+        ),
+        disu=DisuNoticeSourceConfig(
+            notice_url="https://www.disu.ac.kr/community/notice",
+            state_file=".state/disu_last_seen_bbsidx.txt",
         ),
     )
 
@@ -138,4 +172,6 @@ def mock_env():
         "CAU_LIBRARY_API_URL": "https://library.cau.ac.kr/pyxis-api/1/bulletin-boards/1/bulletins",
         "CAU_SW_NOTICE_URL": "https://cse.cau.ac.kr/sub05/sub0501.php?offset=1&nmode=list&code=oktomato_bbs05",
         "CAU_SW_NOTICE_STATE_FILE": ".state/sw_last_seen_uid.txt",
+        "DISU_NOTICE_URL": "https://www.disu.ac.kr/community/notice",
+        "DISU_NOTICE_STATE_FILE": ".state/disu_last_seen_bbsidx.txt",
     }

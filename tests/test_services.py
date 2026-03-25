@@ -1,6 +1,6 @@
 """Tests for application orchestration."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
@@ -23,7 +23,7 @@ class StubSource:
 
 class TestNoticeRunService:
     @pytest.mark.asyncio
-    async def test_persists_latest_sw_uid_only_after_success(self, bot_config):
+    async def test_persists_independent_html_source_state_after_success(self, bot_config):
         cau_source = StubSource(
             NoticeBatch(
                 notices=[
@@ -53,8 +53,23 @@ class TestNoticeRunService:
             )
         )
         library_source = StubSource(NoticeBatch(notices=[]))
+        disu_source = StubSource(
+            NoticeBatch(
+                notices=[
+                    Notice(
+                        title="DISU Notice",
+                        post_date="2026-01-19",
+                        category="차세대반도체 공지 (중앙대학교)",
+                        url="https://www.disu.ac.kr/community/notice?md=v&bbsidx=8601",
+                        source="disu",
+                        source_id=8601,
+                    )
+                ],
+                latest_cursor=8601,
+            )
+        )
         notifier = AsyncMock(return_value=True)
-        state_loader = MagicMock(return_value=3001)
+        state_loader = MagicMock(side_effect=[3001, 8600])
         state_saver = MagicMock()
 
         result = await NoticeRunService(
@@ -66,14 +81,22 @@ class TestNoticeRunService:
             cau_source=cau_source,
             software_source=software_source,
             library_source=library_source,
+            disu_source=disu_source,
         ).run()
 
         assert result.success is True
-        assert result.notices_sent == 2
-        state_saver.assert_called_once_with(".state/sw_last_seen_uid.txt", 3002)
+        assert result.notices_sent == 3
+        assert state_saver.call_args_list == [
+            call(".state/sw_last_seen_uid.txt", 3002),
+            call(".state/disu_last_seen_bbsidx.txt", 8601),
+        ]
         notifier.assert_awaited_once()
         sent_notices = notifier.await_args.args[1]
-        assert [notice.title for notice in sent_notices] == ["CAU Notice", "SW Notice"]
+        assert [notice.title for notice in sent_notices] == [
+            "CAU Notice",
+            "SW Notice",
+            "DISU Notice",
+        ]
 
     @pytest.mark.asyncio
     async def test_does_not_persist_state_on_delivery_failure(self, bot_config):
@@ -83,12 +106,13 @@ class TestNoticeRunService:
         result = await NoticeRunService(
             bot_config,
             notifier=notifier,
-            state_loader=MagicMock(return_value=1000),
+            state_loader=MagicMock(side_effect=[1000, 2000]),
             state_saver=state_saver,
             now_provider=lambda: create_kst_datetime(2026, 1, 19, 15, 0),
             cau_source=StubSource(NoticeBatch(notices=[])),
             software_source=StubSource(NoticeBatch(notices=[], latest_cursor=1001)),
             library_source=StubSource(NoticeBatch(notices=[])),
+            disu_source=StubSource(NoticeBatch(notices=[], latest_cursor=2001)),
         ).run()
 
         assert result.success is False
@@ -99,16 +123,18 @@ class TestNoticeRunService:
         cau_source = StubSource(NoticeBatch(notices=[]))
         software_source = StubSource(NoticeBatch(notices=[], latest_cursor=123))
         library_source = StubSource(NoticeBatch(notices=[]))
+        disu_source = StubSource(NoticeBatch(notices=[], latest_cursor=456))
 
         await NoticeRunService(
             bot_config,
             notifier=AsyncMock(return_value=True),
-            state_loader=MagicMock(return_value=122),
+            state_loader=MagicMock(side_effect=[122, 455]),
             state_saver=MagicMock(),
             now_provider=lambda: create_kst_datetime(2026, 1, 19, 15, 0),
             cau_source=cau_source,
             software_source=software_source,
             library_source=library_source,
+            disu_source=disu_source,
         ).run()
 
         assert cau_source.contexts[0].window.start == create_kst_datetime(
@@ -119,3 +145,4 @@ class TestNoticeRunService:
         )
         assert software_source.contexts[0].state == 122
         assert library_source.contexts[0].state is None
+        assert disu_source.contexts[0].state == 455
