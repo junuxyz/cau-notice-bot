@@ -146,7 +146,7 @@ class SoftwareDeptNoticeSource:
         if uid is None:
             return None
 
-        title = _normalize_html_text(title_link.get_text(separator=" ", strip=True))
+        title = _extract_software_notice_title(title_link)
         date_match = re.search(r"\d{4}\.\d{2}\.\d{2}", row.get_text(" ", strip=True))
         post_date = date_match.group(0) if date_match else ""
 
@@ -338,6 +338,15 @@ def _extract_query_int(href: str, key: str):
 
 def _normalize_html_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _extract_software_notice_title(title_link: Tag) -> str:
+    fragments = [
+        fragment.strip()
+        for fragment in title_link.stripped_strings
+        if fragment.strip() and fragment.strip().upper() != "NEW"
+    ]
+    return _normalize_html_text(" ".join(fragments))
 
 
 def _replace_query_params(url: str, updates: dict[str, str]) -> str:

@@ -112,6 +112,36 @@ class TestSharedCursorHtmlSources:
         assert batch.notices == []
         assert batch.latest_cursor is None
 
+    def test_strips_new_badge_text_from_software_titles(self):
+        html = """
+        <html><body>
+        <table class='table-basic'><tbody>
+        <tr>
+          <td><span class='tag blue'>공지</span></td>
+          <td class='pc-only'></td>
+          <td class='aleft'>
+            <a href='?nmode=view&code=oktomato_bbs05&uid=3336&offset=1'>
+              2026년도 서울캠퍼스 예비군 훈련 안내
+              <span class='tag new'>NEW</span>
+            </a>
+          </td>
+          <td class='pc-only'>학부사무실</td>
+          <td class='pc-only'>2026.03.20</td>
+          <td class='pc-only'>0</td>
+        </tr>
+        </tbody></table>
+        </body></html>
+        """
+
+        source = SoftwareDeptNoticeSource(
+            "https://cse.cau.ac.kr/sub05/sub0501.php?offset=1&nmode=list&code=oktomato_bbs05"
+        )
+
+        with patch("requests.get", return_value=_mock_html_response(html)):
+            batch = source.fetch(_source_context(state=3335))
+
+        assert batch.notices[0].title == "2026년도 서울캠퍼스 예비군 훈련 안내"
+
 
 class TestDisuNoticeSource:
     def test_filters_categories_and_paginates_until_relevant_notice_found(self):
