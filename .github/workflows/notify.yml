@@ -14,14 +14,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Restore software notice state cache
-        id: sw_state_cache_restore
+      - name: Prepare notice state directory
+        run: mkdir -p .state
+
+      - name: Restore notice state cache
+        id: notice_state_cache_restore
         uses: actions/cache/restore@v4
         with:
-          path: .state/sw_last_seen_uid.txt
-          key: ${{ runner.os }}-sw-notice-state-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .state/
+          key: ${{ runner.os }}-notice-state-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            ${{ runner.os }}-sw-notice-state-
+            ${{ runner.os }}-notice-state-
       
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -45,10 +48,12 @@ jobs:
           CAU_LIBRARY_API_URL: ${{ secrets.CAU_LIBRARY_API_URL }}
           CAU_SW_NOTICE_URL: ${{ secrets.CAU_SW_NOTICE_URL }}
           CAU_SW_NOTICE_STATE_FILE: .state/sw_last_seen_uid.txt
+          DISU_NOTICE_URL: https://www.disu.ac.kr/community/notice
+          DISU_NOTICE_STATE_FILE: .state/disu_last_seen_bbsidx.txt
 
-      - name: Save software notice state cache
+      - name: Save notice state cache
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: .state/sw_last_seen_uid.txt
-          key: ${{ runner.os }}-sw-notice-state-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .state/
+          key: ${{ runner.os }}-notice-state-${{ github.run_id }}-${{ github.run_attempt }}
