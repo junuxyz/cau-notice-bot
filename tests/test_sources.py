@@ -6,10 +6,11 @@ import requests
 
 from src.domain import SourceContext, build_daily_notice_window
 from src.notice_check import check_disu_notices
-from src.sources import DisuNoticeSource, SoftwareDeptNoticeSource
+from src.sources import DisuNoticeSource, NipaNoticeSource, SoftwareDeptNoticeSource
 from tests.conftest import (
     create_disu_notice_list_html,
     create_kst_datetime,
+    create_nipa_notice_list_html,
     create_sw_notice_list_html,
 )
 
@@ -229,3 +230,80 @@ class TestDisuNoticeSource:
         assert [notice["title"] for notice in notices] == ["포함 공지"]
         assert notices[0]["category"] == "차세대반도체 공지 (중앙대학교)"
         assert "bbsidx=8601" in notices[0]["url"]
+
+
+class TestNipaNoticeSource:
+    def test_bootstraps_with_latest_notice_only(self):
+        html = create_nipa_notice_list_html(
+            [
+                {
+                    "number": 385,
+                    "ntt_no": 16626,
+                    "title": "최신 NIPA 공고",
+                    "date": "2026-03-30",
+                },
+                {
+                    "number": 384,
+                    "ntt_no": 16615,
+                    "title": "이전 NIPA 공고",
+                    "date": "2026-03-29",
+                },
+            ]
+        )
+
+        source = NipaNoticeSource("https://nipa.kr/home/2-2")
+
+        with patch("requests.get", return_value=_mock_html_response(html)):
+            batch = source.fetch(_source_context(state=None))
+
+        assert batch.latest_cursor == 16626
+        assert [notice.title for notice in batch.notices] == ["최신 NIPA 공고"]
+        assert batch.notices[0].category == "NIPA 사업공고"
+        assert batch.notices[0].url == "https://nipa.kr/home/2-2/16626"
+
+    def test_returns_new_notices_sorted_oldest_first_across_pages(self):
+        page1 = create_nipa_notice_list_html(
+            [
+                {
+                    "number": 385,
+                    "ntt_no": 16626,
+                    "title": "세 번째 공고",
+                    "date": "2026-03-30",
+                },
+                {
+                    "number": 384,
+                    "ntt_no": 16625,
+                    "title": "두 번째 공고",
+                    "date": "2026-03-29",
+                },
+            ]
+        )
+        page2 = create_nipa_notice_list_html(
+            [
+                {
+                    "number": 383,
+                    "ntt_no": 16624,
+                    "title": "첫 번째 공고",
+                    "date": "2026-03-28",
+                },
+            ]
+        )
+
+        source = NipaNoticeSource("https://nipa.kr/home/2-2")
+
+        with patch(
+            "requests.get",
+            side_effect=[
+                _mock_html_response(page1),
+                _mock_html_response(page2),
+                _mock_html_response(create_nipa_notice_list_html([])),
+            ],
+        ):
+            batch = source.fetch(_source_context(state=16623))
+
+        assert batch.latest_cursor == 16626
+        assert [notice.title for notice in batch.notices] == [
+            "첫 번째 공고",
+            "두 번째 공고",
+            "세 번째 공고",
+        ]

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
 from src.bot_service import send_message_to_discord
@@ -22,6 +22,7 @@ from src.sources import (
     CauApiNoticeSource,
     DisuNoticeSource,
     LibraryNoticeSource,
+    NipaNoticeSource,
     SoftwareDeptNoticeSource,
 )
 
@@ -45,6 +46,7 @@ class NoticeRunService:
         library_source: Optional[LibraryNoticeSource] = None,
         software_source: Optional[SoftwareDeptNoticeSource] = None,
         disu_source: Optional[DisuNoticeSource] = None,
+        nipa_source: Optional[NipaNoticeSource] = None,
     ):
         self.config = config
         self.notifier = notifier or send_message_to_discord
@@ -63,11 +65,13 @@ class NoticeRunService:
             config.sw_notice_url,
         )
         self.disu_source = disu_source or DisuNoticeSource(config.disu_notice_url)
+        self.nipa_source = nipa_source or NipaNoticeSource(config.nipa_notice_url)
 
     async def run(self) -> RunResult:
         window = build_daily_notice_window(self.now_provider())
         sw_last_seen_uid = self.state_loader(self.config.sw_notice_state_file)
         disu_last_seen_bbsidx = self.state_loader(self.config.disu_notice_state_file)
+        nipa_last_seen_ntt_no = self.state_loader(self.config.nipa_notice_state_file)
         recent_disu_notice_keys = load_recent_notice_keys(
             self.config.disu_notice_state_file
         )
@@ -80,6 +84,9 @@ class NoticeRunService:
         disu_batch = self.disu_source.fetch(
             SourceContext(window=window, state=disu_last_seen_bbsidx)
         )
+        nipa_batch = self.nipa_source.fetch(
+            SourceContext(window=window, state=nipa_last_seen_ntt_no)
+        )
 
         latest_sw_uid = sw_batch.latest_cursor
         if sw_last_seen_uid is not None and latest_sw_uid is not None:
@@ -88,6 +95,10 @@ class NoticeRunService:
         latest_disu_bbsidx = disu_batch.latest_cursor
         if disu_last_seen_bbsidx is not None and latest_disu_bbsidx is not None:
             latest_disu_bbsidx = max(latest_disu_bbsidx, disu_last_seen_bbsidx)
+
+        latest_nipa_ntt_no = nipa_batch.latest_cursor
+        if nipa_last_seen_ntt_no is not None and latest_nipa_ntt_no is not None:
+            latest_nipa_ntt_no = max(latest_nipa_ntt_no, nipa_last_seen_ntt_no)
 
         filtered_disu_notices = _filter_new_notice_keys(
             disu_batch.notices,
@@ -98,6 +109,7 @@ class NoticeRunService:
             + sw_batch.notices
             + library_batch.notices
             + filtered_disu_notices
+            + nipa_batch.notices
         )
         success = await self.notifier(self.config, all_notices)
 
@@ -105,6 +117,8 @@ class NoticeRunService:
             self.state_saver(self.config.sw_notice_state_file, latest_sw_uid)
         if success and latest_disu_bbsidx is not None:
             self.state_saver(self.config.disu_notice_state_file, latest_disu_bbsidx)
+        if success and latest_nipa_ntt_no is not None:
+            self.state_saver(self.config.nipa_notice_state_file, latest_nipa_ntt_no)
         if success:
             save_recent_notice_keys(
                 self.config.disu_notice_state_file,
@@ -150,7 +164,9 @@ def save_recent_notice_keys(state_file: str, notice_keys: list[str]) -> None:
     )
 
 
-def merge_recent_notice_keys(existing_keys: list[str], notices: list[Notice]) -> list[str]:
+def merge_recent_notice_keys(
+    existing_keys: list[str], notices: list[Notice]
+) -> list[str]:
     merged_keys = list(existing_keys)
     seen_keys = set(existing_keys)
 
@@ -174,7 +190,9 @@ def build_notice_key(notice: Notice) -> str:
     return "|".join(parts)
 
 
-def _filter_new_notice_keys(notices: list[Notice], existing_keys: list[str]) -> list[Notice]:
+def _filter_new_notice_keys(
+    notices: list[Notice], existing_keys: list[str]
+) -> list[Notice]:
     filtered_notices: list[Notice] = []
     seen_keys = set(existing_keys)
 

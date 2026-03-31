@@ -14,6 +14,7 @@ from src.config import (
     DiscordConfig,
     DisuNoticeSourceConfig,
     LibraryNoticeSourceConfig,
+    NipaNoticeSourceConfig,
     SoftwareNoticeSourceConfig,
 )
 
@@ -108,6 +109,41 @@ def create_disu_notice_list_html(rows):
     )
 
 
+def create_nipa_notice_list_html(rows):
+    """Create a minimal NIPA notice list HTML snippet."""
+    body_rows = []
+    for row in rows:
+        body_rows.append(
+            (
+                "<tr>"
+                f"<td>{row['number']}</td>"
+                "<td><div class='point d-one'><b>D-7</b></div></td>"
+                "<td class='tl'>"
+                "<div class='co'>"
+                "<div>"
+                f"<a href='/home/2-2/{row['ntt_no']}'>{row['title']}</a>"
+                "</div>"
+                "<div>"
+                f"<span class='box bluebox'>{row.get('business_name', '사업명')}</span>"
+                f"<span class='bco'>신청기간 : {row.get('period', '2026-03-24 09:00 ~ 2026-04-23 16:00')}</span>"
+                "</div>"
+                "</div>"
+                "</td>"
+                f"<td><span class='bco'>{row.get('author', '담당자')}</span></td>"
+                f"<td><span class='bco'>{row['date']}</span></td>"
+                "</tr>"
+            )
+        )
+
+    return (
+        "<html><body>"
+        "<table class='tbgg'><tbody>"
+        f"{''.join(body_rows)}"
+        "</tbody></table>"
+        "</body></html>"
+    )
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -136,6 +172,10 @@ def bot_config():
         disu=DisuNoticeSourceConfig(
             notice_url="https://www.disu.ac.kr/community/notice",
             state_file=".state/disu_last_seen_bbsidx.txt",
+        ),
+        nipa=NipaNoticeSourceConfig(
+            notice_url="https://nipa.kr/home/2-2",
+            state_file=".state/nipa_last_seen_ntt_no.txt",
         ),
     )
 
@@ -174,4 +214,6 @@ def mock_env():
         "CAU_SW_NOTICE_STATE_FILE": ".state/sw_last_seen_uid.txt",
         "DISU_NOTICE_URL": "https://www.disu.ac.kr/community/notice",
         "DISU_NOTICE_STATE_FILE": ".state/disu_last_seen_bbsidx.txt",
+        "NIPA_NOTICE_URL": "https://nipa.kr/home/2-2",
+        "NIPA_NOTICE_STATE_FILE": ".state/nipa_last_seen_ntt_no.txt",
     }

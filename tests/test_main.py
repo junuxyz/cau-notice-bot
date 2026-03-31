@@ -14,6 +14,7 @@ from tests.conftest import (
     create_kst_datetime,
     create_library_api_response,
     create_library_notice,
+    create_nipa_notice_list_html,
     create_sw_notice_list_html,
 )
 
@@ -74,6 +75,7 @@ class TestMain:
             )
         )
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
+        nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
@@ -86,9 +88,10 @@ class TestMain:
                     sw_page2_response,
                     library_response,
                     disu_response,
+                    nipa_response,
                 ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[3001, None]),
+            patch("src.services.load_last_seen_uid", side_effect=[3001, None, None]),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=_mock_discord_session()),
         ):
@@ -105,14 +108,21 @@ class TestMain:
         sw_response = _mock_html_response(create_sw_notice_list_html([]))
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
+        nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response, disu_response],
+                side_effect=[
+                    cau_response,
+                    sw_response,
+                    library_response,
+                    disu_response,
+                    nipa_response,
+                ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[999, None]),
+            patch("src.services.load_last_seen_uid", side_effect=[999, None, None]),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
         ):
             exit_code = await main()
@@ -150,13 +160,20 @@ class TestMain:
         sw_response = _mock_html_response(create_sw_notice_list_html([]))
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
+        nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
             patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response, disu_response],
+                side_effect=[
+                    cau_response,
+                    sw_response,
+                    library_response,
+                    disu_response,
+                    nipa_response,
+                ],
             ),
             patch(
                 "aiohttp.ClientSession", return_value=_mock_discord_session(status=403)
@@ -181,6 +198,7 @@ class TestMain:
         sw_page2_response = _mock_html_response(create_sw_notice_list_html([]))
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
+        nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
 
         mock_response = AsyncMock(status=200, text=AsyncMock(return_value="{}"))
         mock_session = MagicMock()
@@ -204,9 +222,10 @@ class TestMain:
                     sw_page2_response,
                     library_response,
                     disu_response,
+                    nipa_response,
                 ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[776, None]),
+            patch("src.services.load_last_seen_uid", side_effect=[776, None, None]),
             patch("src.services.save_last_seen_uid"),
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):
@@ -224,7 +243,9 @@ class TestMain:
         assert "[바로가기](" in sw_field["value"]
 
     @pytest.mark.asyncio
-    async def test_initial_run_sends_only_latest_sw_notice_and_saves_uid(self, mock_env):
+    async def test_initial_run_sends_only_latest_sw_notice_and_saves_uid(
+        self, mock_env
+    ):
         """Initial run should send latest SW notice once and initialize state."""
         cau_response = _mock_api_response({"data": {"list": []}})
         sw_response = _mock_html_response(
@@ -237,6 +258,7 @@ class TestMain:
         )
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
+        nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
 
         mock_response = AsyncMock(status=200, text=AsyncMock(return_value="{}"))
         mock_session = MagicMock()
@@ -254,9 +276,15 @@ class TestMain:
             patch("src.services.get_korea_datetime") as mock_now,
             patch(
                 "requests.get",
-                side_effect=[cau_response, sw_response, library_response, disu_response],
+                side_effect=[
+                    cau_response,
+                    sw_response,
+                    library_response,
+                    disu_response,
+                    nipa_response,
+                ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[None, None]),
+            patch("src.services.load_last_seen_uid", side_effect=[None, None, None]),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):

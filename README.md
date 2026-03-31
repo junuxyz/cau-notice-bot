@@ -17,6 +17,7 @@ Sends new notices from the past 24 hours to one or more Discord channels every d
 - 💻 **Software Department Notices**
 - 📚 **Library Notices**
 - 🔬 **DISU Semiconductor Notices**
+- 🏢 **NIPA Business Notices**
 - 🌈 **Rainbow System Links**
 
 ## How it works
@@ -38,11 +39,14 @@ CAU_SW_NOTICE_URL=https://cse.cau.ac.kr/sub05/sub0501.php?offset=1&nmode=list&co
 CAU_SW_NOTICE_STATE_FILE=.state/sw_last_seen_uid.txt
 DISU_NOTICE_URL=https://www.disu.ac.kr/community/notice
 DISU_NOTICE_STATE_FILE=.state/disu_last_seen_bbsidx.txt
+NIPA_NOTICE_URL=https://nipa.kr/home/2-2
+NIPA_NOTICE_STATE_FILE=.state/nipa_last_seen_ntt_no.txt
 ```
 
 - `DISCORD_CHANNEL_IDS` is required and supports one or more IDs (comma-separated).
 - `CAU_SW_NOTICE_STATE_FILE` stores a single `last_seen_uid` value for software notice dedupe.
 - `DISU_NOTICE_STATE_FILE` stores a single `last_seen_bbsidx` value for DISU notice dedupe.
+- `NIPA_NOTICE_STATE_FILE` stores a single `last_seen_ntt_no` value for NIPA notice dedupe.
 
 ## Development
 

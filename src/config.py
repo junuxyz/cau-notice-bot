@@ -37,12 +37,19 @@ class DisuNoticeSourceConfig:
 
 
 @dataclass(frozen=True)
+class NipaNoticeSourceConfig:
+    notice_url: str
+    state_file: str
+
+
+@dataclass(frozen=True)
 class BotConfig:
     discord: DiscordConfig
     cau: CauNoticeSourceConfig
     library: LibraryNoticeSourceConfig
     software: SoftwareNoticeSourceConfig
     disu: DisuNoticeSourceConfig
+    nipa: NipaNoticeSourceConfig
 
     @property
     def bot_token(self) -> str:
@@ -84,6 +91,14 @@ class BotConfig:
     def disu_notice_state_file(self) -> str:
         return self.disu.state_file
 
+    @property
+    def nipa_notice_url(self) -> str:
+        return self.nipa.notice_url
+
+    @property
+    def nipa_notice_state_file(self) -> str:
+        return self.nipa.state_file
+
 
 def load_config() -> BotConfig:
     """Load configuration from environment variables."""
@@ -112,6 +127,12 @@ def load_config() -> BotConfig:
             ),
             state_file=os.environ.get(
                 "DISU_NOTICE_STATE_FILE", ".state/disu_last_seen_bbsidx.txt"
+            ),
+        ),
+        nipa=NipaNoticeSourceConfig(
+            notice_url=os.environ.get("NIPA_NOTICE_URL", "https://nipa.kr/home/2-2"),
+            state_file=os.environ.get(
+                "NIPA_NOTICE_STATE_FILE", ".state/nipa_last_seen_ntt_no.txt"
             ),
         ),
     )

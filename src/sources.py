@@ -223,6 +223,55 @@ class DisuNoticeSource:
         )
 
 
+class NipaNoticeSource:
+    def __init__(self, notice_url: str):
+        self.notice_url = notice_url
+        self._source = CursorHtmlNoticeSource(
+            source_name="NIPA notices",
+            build_page_url=lambda page: _replace_query_params(
+                notice_url,
+                {"curPage": str(page)},
+            ),
+            row_selector="table.tbgg tbody tr",
+            row_parser=self._parse_row,
+        )
+
+    def fetch(self, context: SourceContext) -> NoticeBatch:
+        if not self.notice_url:
+            return NoticeBatch(notices=[])
+
+        return self._source.fetch(context)
+
+    def _parse_row(self, row: Tag, page_url: str) -> Optional[ParsedCursorNoticeRow]:
+        title_link = row.select_one("td.tl a")
+        if not title_link:
+            return None
+
+        notice_id = _extract_path_int(title_link.get("href", ""))
+        if notice_id is None:
+            return None
+
+        title = _normalize_html_text(title_link.get_text(separator=" ", strip=True))
+        date_cell = row.select("td")[-1] if row.select("td") else None
+        post_date = (
+            _normalize_html_text(date_cell.get_text(separator=" ", strip=True))
+            if date_cell
+            else ""
+        )
+
+        return ParsedCursorNoticeRow(
+            cursor=notice_id,
+            notice=Notice(
+                title=title,
+                post_date=post_date,
+                category="NIPA 사업공고",
+                url=urljoin(page_url, title_link.get("href", "")),
+                source="nipa",
+                source_id=notice_id,
+            ),
+        )
+
+
 class CursorHtmlNoticeSource:
     def __init__(
         self,
@@ -332,6 +381,18 @@ def _extract_query_int(href: str, key: str):
 
     try:
         return int(values[0])
+    except ValueError:
+        return None
+
+
+def _extract_path_int(href: str):
+    path = urlparse(href).path.rstrip("/")
+    if not path:
+        return None
+
+    last_segment = path.split("/")[-1]
+    try:
+        return int(last_segment)
     except ValueError:
         return None
 
