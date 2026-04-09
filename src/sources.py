@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -272,6 +273,113 @@ class NipaNoticeSource:
         )
 
 
+class EventUsNoticeSource:
+    def __init__(self, notice_url: str):
+        self.notice_url = notice_url
+
+    def fetch(self, context: SourceContext) -> NoticeBatch:
+        if not self.notice_url:
+            return NoticeBatch(notices=[])
+
+        try:
+            res = requests.get(self.notice_url, timeout=10)
+            res.raise_for_status()
+        except Exception as exc:
+            logging.error("Failed to fetch EventUs notices: %s", exc)
+            return NoticeBatch(notices=[], latest_cursor=None)
+
+        html = res.text
+        if not isinstance(html, str):
+            html = res.content.decode("utf-8", errors="ignore")
+
+        match = re.search(
+            r"const eventListJson = `(?P<payload>.*?)`;",
+            html,
+            re.DOTALL,
+        )
+        if not match:
+            logging.error("Failed to locate embedded EventUs event list JSON.")
+            return NoticeBatch(notices=[], latest_cursor=None)
+
+        try:
+            payload = json.loads(match.group("payload"))
+        except json.JSONDecodeError as exc:
+            logging.error("Failed to parse EventUs event list JSON: %s", exc)
+            return NoticeBatch(notices=[], latest_cursor=None)
+
+        event_rows = [
+            event
+            for group in payload
+            for event in group.get("list", [])
+            if isinstance(event, dict)
+        ]
+        if not event_rows:
+            return NoticeBatch(notices=[], latest_cursor=None)
+
+        parsed_events = [
+            parsed_event
+            for event in event_rows
+            if (parsed_event := self._parse_event(event)) is not None
+        ]
+        if not parsed_events:
+            return NoticeBatch(notices=[], latest_cursor=None)
+
+        latest_cursor = max(
+            parsed_event.cursor for parsed_event in parsed_events if parsed_event.cursor
+        )
+        last_seen_cursor = context.state
+
+        if last_seen_cursor is None:
+            latest_event = max(
+                parsed_events, key=lambda parsed_event: parsed_event.cursor
+            )
+            return NoticeBatch(
+                notices=[latest_event.notice], latest_cursor=latest_cursor
+            )
+
+        notices = [
+            parsed_event.notice
+            for parsed_event in sorted(
+                parsed_events, key=lambda parsed_event: parsed_event.cursor
+            )
+            if parsed_event.cursor > last_seen_cursor
+        ]
+        return NoticeBatch(notices=notices, latest_cursor=latest_cursor)
+
+    def _parse_event(self, event: dict) -> Optional[ParsedCursorNoticeRow]:
+        raw_id = event.get("Id")
+        if raw_id is None:
+            return None
+
+        try:
+            event_id = int(str(raw_id))
+        except ValueError:
+            return None
+
+        title = _normalize_html_text(str(event.get("Title", "")))
+        if not title:
+            return None
+
+        created_at = _parse_eventus_date(event.get("CreatedDate"))
+        event_url = urljoin(self.notice_url.rstrip("/") + "/", str(event_id))
+        event_type = _normalize_html_text(str(event.get("EventType", "")))
+        category = "SqueezeBits 행사"
+        if event_type:
+            category = f"SqueezeBits 행사 ({event_type})"
+
+        return ParsedCursorNoticeRow(
+            cursor=event_id,
+            notice=Notice(
+                title=title,
+                post_date=created_at.strftime("%Y-%m-%d %H:%M") if created_at else "",
+                category=category,
+                url=event_url,
+                source="eventus",
+                source_id=event_id,
+            ),
+        )
+
+
 class CursorHtmlNoticeSource:
     def __init__(
         self,
@@ -399,6 +507,20 @@ def _extract_path_int(href: str):
 
 def _normalize_html_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _parse_eventus_date(raw_value: object) -> Optional[datetime]:
+    if not isinstance(raw_value, str):
+        return None
+
+    match = re.search(r"/Date\((?P<epoch_ms>\d+)\)/", raw_value)
+    if not match:
+        return None
+
+    try:
+        return datetime.fromtimestamp(int(match.group("epoch_ms")) / 1000, tz=KST)
+    except (OverflowError, ValueError):
+        return None
 
 
 def _extract_software_notice_title(title_link: Tag) -> str:

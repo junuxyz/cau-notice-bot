@@ -76,6 +76,9 @@ class TestMain:
         )
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
         nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
+        eventus_response = _mock_html_response(
+            "<html><body><script>const eventListJson = `[]`;</script></body></html>"
+        )
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
@@ -89,9 +92,13 @@ class TestMain:
                     library_response,
                     disu_response,
                     nipa_response,
+                    eventus_response,
                 ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[3001, None, None]),
+            patch(
+                "src.services.load_last_seen_uid",
+                side_effect=[3001, None, None, None],
+            ),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=_mock_discord_session()),
         ):
@@ -109,6 +116,12 @@ class TestMain:
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
         nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
+        eventus_response = _mock_html_response(
+            "<html><body><script>const eventListJson = `[]`;</script></body></html>"
+        )
+        eventus_response = _mock_html_response(
+            "<html><body><script>const eventListJson = `[]`;</script></body></html>"
+        )
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
@@ -120,9 +133,13 @@ class TestMain:
                     library_response,
                     disu_response,
                     nipa_response,
+                    eventus_response,
                 ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[999, None, None]),
+            patch(
+                "src.services.load_last_seen_uid",
+                side_effect=[999, None, None, None],
+            ),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
         ):
             exit_code = await main()
@@ -161,6 +178,9 @@ class TestMain:
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
         nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
+        eventus_response = _mock_html_response(
+            "<html><body><script>const eventListJson = `[]`;</script></body></html>"
+        )
 
         with (
             patch.dict("os.environ", mock_env, clear=True),
@@ -173,6 +193,7 @@ class TestMain:
                     library_response,
                     disu_response,
                     nipa_response,
+                    eventus_response,
                 ],
             ),
             patch(
@@ -199,6 +220,9 @@ class TestMain:
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
         nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
+        eventus_response = _mock_html_response(
+            "<html><body><script>const eventListJson = `[]`;</script></body></html>"
+        )
 
         mock_response = AsyncMock(status=200, text=AsyncMock(return_value="{}"))
         mock_session = MagicMock()
@@ -223,9 +247,13 @@ class TestMain:
                     library_response,
                     disu_response,
                     nipa_response,
+                    eventus_response,
                 ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[776, None, None]),
+            patch(
+                "src.services.load_last_seen_uid",
+                side_effect=[776, None, None, None],
+            ),
             patch("src.services.save_last_seen_uid"),
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):
@@ -259,6 +287,9 @@ class TestMain:
         library_response = _mock_api_response({"success": True, "data": {"list": []}})
         disu_response = _mock_html_response(create_disu_notice_list_html([]))
         nipa_response = _mock_html_response(create_nipa_notice_list_html([]))
+        eventus_response = _mock_html_response(
+            "<html><body><script>const eventListJson = `[]`;</script></body></html>"
+        )
 
         mock_response = AsyncMock(status=200, text=AsyncMock(return_value="{}"))
         mock_session = MagicMock()
@@ -282,9 +313,13 @@ class TestMain:
                     library_response,
                     disu_response,
                     nipa_response,
+                    eventus_response,
                 ],
             ),
-            patch("src.services.load_last_seen_uid", side_effect=[None, None, None]),
+            patch(
+                "src.services.load_last_seen_uid",
+                side_effect=[None, None, None, None],
+            ),
             patch("src.services.save_last_seen_uid") as mock_save_uid,
             patch("aiohttp.ClientSession", return_value=mock_session),
         ):

@@ -45,6 +45,10 @@ class TestLoadConfig:
         assert config.disu_notice_state_file == ".state/disu_last_seen_bbsidx.txt"
         assert config.nipa_notice_url == "https://nipa.kr/home/2-2"
         assert config.nipa_notice_state_file == ".state/nipa_last_seen_ntt_no.txt"
+        assert config.eventus_notice_url == "https://event-us.kr/squeezebits/event/"
+        assert (
+            config.eventus_notice_state_file == ".state/eventus_last_seen_event_id.txt"
+        )
 
     def test_load_config_single_channel_id_success(self, mock_env):
         """Single channel ID in DISCORD_CHANNEL_IDS is accepted"""

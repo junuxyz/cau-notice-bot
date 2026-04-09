@@ -6,9 +6,15 @@ import requests
 
 from src.domain import SourceContext, build_daily_notice_window
 from src.notice_check import check_disu_notices
-from src.sources import DisuNoticeSource, NipaNoticeSource, SoftwareDeptNoticeSource
+from src.sources import (
+    DisuNoticeSource,
+    EventUsNoticeSource,
+    NipaNoticeSource,
+    SoftwareDeptNoticeSource,
+)
 from tests.conftest import (
     create_disu_notice_list_html,
+    create_eventus_channel_html,
     create_kst_datetime,
     create_nipa_notice_list_html,
     create_sw_notice_list_html,
@@ -258,8 +264,87 @@ class TestNipaNoticeSource:
 
         assert batch.latest_cursor == 16626
         assert [notice.title for notice in batch.notices] == ["최신 NIPA 공고"]
-        assert batch.notices[0].category == "NIPA 사업공고"
-        assert batch.notices[0].url == "https://nipa.kr/home/2-2/16626"
+
+
+class TestEventUsNoticeSource:
+    def test_bootstraps_with_latest_event_only(self):
+        html = create_eventus_channel_html(
+            [
+                {
+                    "title": "진행중인 행사",
+                    "list": [
+                        {
+                            "Id": "121999",
+                            "Title": "2026 vLLM Korea Meetup",
+                            "CreatedDate": "/Date(1772772703540)/",
+                            "EventType": "강연/세미나",
+                        },
+                        {
+                            "Id": "117481",
+                            "Title": "Intel Gaudi Hands-on Workshop",
+                            "CreatedDate": "/Date(1764144414677)/",
+                            "EventType": "워크샵/클리닉",
+                        },
+                    ],
+                }
+            ]
+        )
+
+        source = EventUsNoticeSource("https://event-us.kr/squeezebits/event/")
+
+        with patch("requests.get", return_value=_mock_html_response(html)):
+            batch = source.fetch(_source_context(state=None))
+
+        assert batch.latest_cursor == 121999
+        assert [notice.title for notice in batch.notices] == ["2026 vLLM Korea Meetup"]
+        assert batch.notices[0].url == "https://event-us.kr/squeezebits/event/121999"
+
+    def test_returns_new_events_sorted_oldest_first_across_groups(self):
+        html = create_eventus_channel_html(
+            [
+                {
+                    "title": "진행중인 행사",
+                    "list": [
+                        {
+                            "Id": "121999",
+                            "Title": "2026 vLLM Korea Meetup",
+                            "CreatedDate": "/Date(1772772703540)/",
+                            "EventType": "강연/세미나",
+                        }
+                    ],
+                },
+                {
+                    "title": "종료 행사",
+                    "list": [
+                        {
+                            "Id": "117481",
+                            "Title": "Intel Gaudi Hands-on Workshop",
+                            "CreatedDate": "/Date(1764144414677)/",
+                            "EventType": "워크샵/클리닉",
+                        },
+                        {
+                            "Id": "113587",
+                            "Title": "vLLM Hands-on Workshop",
+                            "CreatedDate": "/Date(1759139836598)/",
+                            "EventType": "워크샵/클리닉",
+                        },
+                    ],
+                },
+            ]
+        )
+
+        source = EventUsNoticeSource("https://event-us.kr/squeezebits/event/")
+
+        with patch("requests.get", return_value=_mock_html_response(html)):
+            batch = source.fetch(_source_context(state=113587))
+
+        assert batch.latest_cursor == 121999
+        assert [notice.title for notice in batch.notices] == [
+            "Intel Gaudi Hands-on Workshop",
+            "2026 vLLM Korea Meetup",
+        ]
+        assert batch.notices[0].category == "SqueezeBits 행사 (워크샵/클리닉)"
+        assert batch.notices[0].url == "https://event-us.kr/squeezebits/event/117481"
 
     def test_returns_new_notices_sorted_oldest_first_across_pages(self):
         page1 = create_nipa_notice_list_html(

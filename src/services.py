@@ -21,6 +21,7 @@ from src.notice_check import load_last_seen_uid, save_last_seen_uid
 from src.sources import (
     CauApiNoticeSource,
     DisuNoticeSource,
+    EventUsNoticeSource,
     LibraryNoticeSource,
     NipaNoticeSource,
     SoftwareDeptNoticeSource,
@@ -47,6 +48,7 @@ class NoticeRunService:
         software_source: Optional[SoftwareDeptNoticeSource] = None,
         disu_source: Optional[DisuNoticeSource] = None,
         nipa_source: Optional[NipaNoticeSource] = None,
+        eventus_source: Optional[EventUsNoticeSource] = None,
     ):
         self.config = config
         self.notifier = notifier or send_message_to_discord
@@ -66,12 +68,18 @@ class NoticeRunService:
         )
         self.disu_source = disu_source or DisuNoticeSource(config.disu_notice_url)
         self.nipa_source = nipa_source or NipaNoticeSource(config.nipa_notice_url)
+        self.eventus_source = eventus_source or EventUsNoticeSource(
+            config.eventus_notice_url
+        )
 
     async def run(self) -> RunResult:
         window = build_daily_notice_window(self.now_provider())
         sw_last_seen_uid = self.state_loader(self.config.sw_notice_state_file)
         disu_last_seen_bbsidx = self.state_loader(self.config.disu_notice_state_file)
         nipa_last_seen_ntt_no = self.state_loader(self.config.nipa_notice_state_file)
+        eventus_last_seen_event_id = self.state_loader(
+            self.config.eventus_notice_state_file
+        )
         recent_disu_notice_keys = load_recent_notice_keys(
             self.config.disu_notice_state_file
         )
@@ -87,6 +95,9 @@ class NoticeRunService:
         nipa_batch = self.nipa_source.fetch(
             SourceContext(window=window, state=nipa_last_seen_ntt_no)
         )
+        eventus_batch = self.eventus_source.fetch(
+            SourceContext(window=window, state=eventus_last_seen_event_id)
+        )
 
         latest_sw_uid = sw_batch.latest_cursor
         if sw_last_seen_uid is not None and latest_sw_uid is not None:
@@ -100,6 +111,16 @@ class NoticeRunService:
         if nipa_last_seen_ntt_no is not None and latest_nipa_ntt_no is not None:
             latest_nipa_ntt_no = max(latest_nipa_ntt_no, nipa_last_seen_ntt_no)
 
+        latest_eventus_event_id = eventus_batch.latest_cursor
+        if (
+            eventus_last_seen_event_id is not None
+            and latest_eventus_event_id is not None
+        ):
+            latest_eventus_event_id = max(
+                latest_eventus_event_id,
+                eventus_last_seen_event_id,
+            )
+
         filtered_disu_notices = _filter_new_notice_keys(
             disu_batch.notices,
             recent_disu_notice_keys,
@@ -110,6 +131,7 @@ class NoticeRunService:
             + library_batch.notices
             + filtered_disu_notices
             + nipa_batch.notices
+            + eventus_batch.notices
         )
         success = await self.notifier(self.config, all_notices)
 
@@ -119,6 +141,11 @@ class NoticeRunService:
             self.state_saver(self.config.disu_notice_state_file, latest_disu_bbsidx)
         if success and latest_nipa_ntt_no is not None:
             self.state_saver(self.config.nipa_notice_state_file, latest_nipa_ntt_no)
+        if success and latest_eventus_event_id is not None:
+            self.state_saver(
+                self.config.eventus_notice_state_file,
+                latest_eventus_event_id,
+            )
         if success:
             save_recent_notice_keys(
                 self.config.disu_notice_state_file,

@@ -43,6 +43,12 @@ class NipaNoticeSourceConfig:
 
 
 @dataclass(frozen=True)
+class EventUsNoticeSourceConfig:
+    notice_url: str
+    state_file: str
+
+
+@dataclass(frozen=True)
 class BotConfig:
     discord: DiscordConfig
     cau: CauNoticeSourceConfig
@@ -50,6 +56,7 @@ class BotConfig:
     software: SoftwareNoticeSourceConfig
     disu: DisuNoticeSourceConfig
     nipa: NipaNoticeSourceConfig
+    eventus: EventUsNoticeSourceConfig
 
     @property
     def bot_token(self) -> str:
@@ -99,6 +106,14 @@ class BotConfig:
     def nipa_notice_state_file(self) -> str:
         return self.nipa.state_file
 
+    @property
+    def eventus_notice_url(self) -> str:
+        return self.eventus.notice_url
+
+    @property
+    def eventus_notice_state_file(self) -> str:
+        return self.eventus.state_file
+
 
 def load_config() -> BotConfig:
     """Load configuration from environment variables."""
@@ -133,6 +148,14 @@ def load_config() -> BotConfig:
             notice_url=os.environ.get("NIPA_NOTICE_URL", "https://nipa.kr/home/2-2"),
             state_file=os.environ.get(
                 "NIPA_NOTICE_STATE_FILE", ".state/nipa_last_seen_ntt_no.txt"
+            ),
+        ),
+        eventus=EventUsNoticeSourceConfig(
+            notice_url=os.environ.get(
+                "EVENTUS_NOTICE_URL", "https://event-us.kr/squeezebits/event/"
+            ),
+            state_file=os.environ.get(
+                "EVENTUS_NOTICE_STATE_FILE", ".state/eventus_last_seen_event_id.txt"
             ),
         ),
     )

@@ -18,6 +18,7 @@ Sends new notices from the past 24 hours to one or more Discord channels every d
 - 📚 **Library Notices**
 - 🔬 **DISU Semiconductor Notices**
 - 🏢 **NIPA Business Notices**
+- 🎟️ **SqueezeBits EventUs Events**
 - 🌈 **Rainbow System Links**
 
 ## How it works
@@ -41,12 +42,15 @@ DISU_NOTICE_URL=https://www.disu.ac.kr/community/notice
 DISU_NOTICE_STATE_FILE=.state/disu_last_seen_bbsidx.txt
 NIPA_NOTICE_URL=https://nipa.kr/home/2-2
 NIPA_NOTICE_STATE_FILE=.state/nipa_last_seen_ntt_no.txt
+EVENTUS_NOTICE_URL=https://event-us.kr/squeezebits/event/
+EVENTUS_NOTICE_STATE_FILE=.state/eventus_last_seen_event_id.txt
 ```
 
 - `DISCORD_CHANNEL_IDS` is required and supports one or more IDs (comma-separated).
 - `CAU_SW_NOTICE_STATE_FILE` stores a single `last_seen_uid` value for software notice dedupe.
 - `DISU_NOTICE_STATE_FILE` stores a single `last_seen_bbsidx` value for DISU notice dedupe.
 - `NIPA_NOTICE_STATE_FILE` stores a single `last_seen_ntt_no` value for NIPA notice dedupe.
+- `EVENTUS_NOTICE_STATE_FILE` stores a single `last_seen_event_id` value for SqueezeBits EventUs dedupe.
 
 ## Development
 

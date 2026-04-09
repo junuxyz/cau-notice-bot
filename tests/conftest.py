@@ -3,6 +3,7 @@ Shared test fixtures and mock data.
 All tests use mocked data - no actual servers are contacted.
 """
 
+import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
@@ -13,6 +14,7 @@ from src.config import (
     CauNoticeSourceConfig,
     DiscordConfig,
     DisuNoticeSourceConfig,
+    EventUsNoticeSourceConfig,
     LibraryNoticeSourceConfig,
     NipaNoticeSourceConfig,
     SoftwareNoticeSourceConfig,
@@ -144,6 +146,14 @@ def create_nipa_notice_list_html(rows):
     )
 
 
+def create_eventus_channel_html(groups):
+    """Create a minimal EventUs channel page with embedded eventListJson."""
+    payload = json.dumps(groups, ensure_ascii=False).replace("</", "<\\/")
+    return (
+        f"<html><body><script>const eventListJson = `{payload}`;</script></body></html>"
+    )
+
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -176,6 +186,10 @@ def bot_config():
         nipa=NipaNoticeSourceConfig(
             notice_url="https://nipa.kr/home/2-2",
             state_file=".state/nipa_last_seen_ntt_no.txt",
+        ),
+        eventus=EventUsNoticeSourceConfig(
+            notice_url="https://event-us.kr/squeezebits/event/",
+            state_file=".state/eventus_last_seen_event_id.txt",
         ),
     )
 
@@ -216,4 +230,6 @@ def mock_env():
         "DISU_NOTICE_STATE_FILE": ".state/disu_last_seen_bbsidx.txt",
         "NIPA_NOTICE_URL": "https://nipa.kr/home/2-2",
         "NIPA_NOTICE_STATE_FILE": ".state/nipa_last_seen_ntt_no.txt",
+        "EVENTUS_NOTICE_URL": "https://event-us.kr/squeezebits/event/",
+        "EVENTUS_NOTICE_STATE_FILE": ".state/eventus_last_seen_event_id.txt",
     }

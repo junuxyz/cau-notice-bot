@@ -55,6 +55,10 @@ class TestNoticeRunService:
                 bot_config.nipa,
                 state_file=str(tmp_path / "nipa_last_seen_ntt_no.txt"),
             ),
+            eventus=replace(
+                bot_config.eventus,
+                state_file=str(tmp_path / "eventus_last_seen_event_id.txt"),
+            ),
         )
         cau_source = StubSource(
             NoticeBatch(
@@ -113,7 +117,22 @@ class TestNoticeRunService:
             )
         )
         notifier = AsyncMock(return_value=True)
-        state_loader = MagicMock(side_effect=[3001, 8600, 16625])
+        eventus_source = StubSource(
+            NoticeBatch(
+                notices=[
+                    Notice(
+                        title="2026 vLLM Korea Meetup",
+                        post_date="2026-03-05 15:11",
+                        category="SqueezeBits 행사 (강연/세미나)",
+                        url="https://event-us.kr/squeezebits/event/121999",
+                        source="eventus",
+                        source_id=121999,
+                    )
+                ],
+                latest_cursor=121999,
+            )
+        )
+        state_loader = MagicMock(side_effect=[3001, 8600, 16625, 121998])
         state_saver = MagicMock()
 
         result = await NoticeRunService(
@@ -127,14 +146,16 @@ class TestNoticeRunService:
             library_source=library_source,
             disu_source=disu_source,
             nipa_source=nipa_source,
+            eventus_source=eventus_source,
         ).run()
 
         assert result.success is True
-        assert result.notices_sent == 4
+        assert result.notices_sent == 5
         assert state_saver.call_args_list == [
             call(str(tmp_path / "sw_last_seen_uid.txt"), 3002),
             call(str(tmp_path / "disu_last_seen_bbsidx.txt"), 8601),
             call(str(tmp_path / "nipa_last_seen_ntt_no.txt"), 16626),
+            call(str(tmp_path / "eventus_last_seen_event_id.txt"), 121999),
         ]
         notifier.assert_awaited_once()
         sent_notices = notifier.await_args.args[1]
@@ -143,6 +164,7 @@ class TestNoticeRunService:
             "SW Notice",
             "Partner Notice",
             "NIPA Notice",
+            "2026 vLLM Korea Meetup",
         ]
 
     @pytest.mark.asyncio
@@ -153,7 +175,7 @@ class TestNoticeRunService:
         result = await NoticeRunService(
             bot_config,
             notifier=notifier,
-            state_loader=MagicMock(side_effect=[1000, 2000, 3000]),
+            state_loader=MagicMock(side_effect=[1000, 2000, 3000, 4000]),
             state_saver=state_saver,
             now_provider=lambda: create_kst_datetime(2026, 1, 19, 15, 0),
             cau_source=StubSource(NoticeBatch(notices=[])),
@@ -161,6 +183,7 @@ class TestNoticeRunService:
             library_source=StubSource(NoticeBatch(notices=[])),
             disu_source=StubSource(NoticeBatch(notices=[], latest_cursor=2001)),
             nipa_source=StubSource(NoticeBatch(notices=[], latest_cursor=3001)),
+            eventus_source=StubSource(NoticeBatch(notices=[], latest_cursor=4001)),
         ).run()
 
         assert result.success is False
@@ -173,11 +196,12 @@ class TestNoticeRunService:
         library_source = StubSource(NoticeBatch(notices=[]))
         disu_source = StubSource(NoticeBatch(notices=[], latest_cursor=456))
         nipa_source = StubSource(NoticeBatch(notices=[], latest_cursor=789))
+        eventus_source = StubSource(NoticeBatch(notices=[], latest_cursor=1112))
 
         await NoticeRunService(
             bot_config,
             notifier=AsyncMock(return_value=True),
-            state_loader=MagicMock(side_effect=[122, 455, 788]),
+            state_loader=MagicMock(side_effect=[122, 455, 788, 1111]),
             state_saver=MagicMock(),
             now_provider=lambda: create_kst_datetime(2026, 1, 19, 15, 0),
             cau_source=cau_source,
@@ -185,6 +209,7 @@ class TestNoticeRunService:
             library_source=library_source,
             disu_source=disu_source,
             nipa_source=nipa_source,
+            eventus_source=eventus_source,
         ).run()
 
         assert cau_source.contexts[0].window.start == create_kst_datetime(
@@ -197,6 +222,7 @@ class TestNoticeRunService:
         assert library_source.contexts[0].state is None
         assert disu_source.contexts[0].state == 455
         assert nipa_source.contexts[0].state == 788
+        assert eventus_source.contexts[0].state == 1111
 
     @pytest.mark.asyncio
     async def test_filters_recent_duplicate_disu_notice_and_keeps_cursor_progress(
@@ -236,7 +262,7 @@ class TestNoticeRunService:
         result = await NoticeRunService(
             bot_config,
             notifier=notifier,
-            state_loader=MagicMock(side_effect=[3001, 8601, 16625]),
+            state_loader=MagicMock(side_effect=[3001, 8601, 16625, 121998]),
             state_saver=state_saver,
             now_provider=lambda: create_kst_datetime(2026, 3, 27, 8, 0),
             cau_source=StubSource(NoticeBatch(notices=[])),
@@ -244,6 +270,7 @@ class TestNoticeRunService:
             library_source=StubSource(NoticeBatch(notices=[])),
             disu_source=disu_source,
             nipa_source=StubSource(NoticeBatch(notices=[], latest_cursor=16626)),
+            eventus_source=StubSource(NoticeBatch(notices=[], latest_cursor=121999)),
         ).run()
 
         assert result.success is True
@@ -254,6 +281,7 @@ class TestNoticeRunService:
             call(".state/sw_last_seen_uid.txt", 3001),
             call(str(tmp_path / "disu_last_seen_bbsidx.txt"), 8602),
             call(".state/nipa_last_seen_ntt_no.txt", 16626),
+            call(".state/eventus_last_seen_event_id.txt", 121999),
         ]
         assert json.loads(recent_state_path.read_text(encoding="utf-8")) == [
             build_notice_key(previous_notice)
